@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zhihu2obsidian"
+version = "0.1.0"
+description = "Export Zhihu favorites to Obsidian Vault"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.28",
+    "beautifulsoup4>=4.12",
+    "lxml>=4.9",
+    "markdownify>=0.12",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+knowledge = [
+    "chromadb>=0.5",
+    "fastembed>=0.3",
+    "networkx>=3",
+    "pyvis>=0.3",
+    "wordcloud>=1.9",
+    "jieba>=0.42",
+    "matplotlib>=3.7",
+    "scikit-learn>=1.0",
+]
+all = [
+    "zhihu2obsidian[web]",
+    "pytest>=7",
+    "responses>=0.24",
+    "pytest-mock>=3",
+]
+dev = [
+    "pytest>=7",
+    "responses>=0.24",
+    "pytest-mock>=3",
+]
+web = [
+    "zhihu2obsidian[knowledge]",
+    "streamlit>=1.28",
+]
+
+[project.scripts]
+zhihu2obsidian = "zhihu2obsidian.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["zhihu2obsidian*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

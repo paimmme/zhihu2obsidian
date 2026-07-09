@@ -26,3 +26,16 @@ web/.streamlit/
 
 # Temporary files
 .tmp/
+
+# Deprecated Chrome extension (phase M5 — not needed for Python CLI)
+background.js
+edge/
+icons/
+lib/
+manifest.json
+popup.css
+popup.html
+popup.js
+sync.css
+sync.html
+browser-polyfill.js
