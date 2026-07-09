@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>创作者知识库 · Creator Knowledge Base</title>
+<meta name="description" content="把你的收藏夹变成创作引擎。自动同步知乎/B站收藏 → 向量知识库 → 主题聚类 → AI 写作助手。">
+<style>
+:root {
+  --bg: #fafafa;
+  --surface: #fff;
+  --text: #1a1a2e;
+  --muted: #64748b;
+  --accent: #2563eb;
+  --accent-light: #eff6ff;
+  --border: #e2e8f0;
+  --code-bg: #0f172a;
+  --code-text: #e2e8f0;
+  --radius: 12px;
+  --max-w: 960px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); line-height: 1.7; -webkit-font-smoothing: antialiased; }
+
+/* ── Hero ── */
+.hero {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #f1f5f9;
+  padding: 5rem 1.5rem 4rem;
+  text-align: center;
+}
+.hero h1 {
+  font-size: 2.8rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: .5rem;
+}
+.hero .sub { font-size: 1.15rem; color: #94a3b8; max-width: 600px; margin: 0 auto 2rem; }
+.hero .tagline {
+  display: inline-block;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 100px;
+  padding: .35rem 1rem;
+  font-size: .85rem;
+  color: #94a3b8;
+  margin-bottom: 1.5rem;
+}
+.hero-btns { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; }
+.hero-btns a {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .7rem 1.5rem;
+  border-radius: 8px;
+  font-size: .95rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all .15s;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-ghost { border: 1px solid rgba(255,255,255,.2); color: #e2e8f0; }
+.btn-ghost:hover { background: rgba(255,255,255,.06); }
+
+/* ── Sections ── */
+section { padding: 3.5rem 1.5rem; }
+section:nth-child(even) { background: var(--surface); }
+.container { max-width: var(--max-w); margin: 0 auto; }
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: .25rem;
+}
+.section-desc { color: var(--muted); margin-bottom: 2rem; font-size: .95rem; }
+
+/* ── Feature Grid ── */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  transition: border-color .15s, box-shadow .15s;
+}
+.feature-card:hover { border-color: var(--accent); box-shadow: 0 4px 20px rgba(37,99,235,.08); }
+.feature-card .icon { font-size: 1.6rem; margin-bottom: .5rem; }
+.feature-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: .35rem; }
+.feature-card p { font-size: .88rem; color: var(--muted); line-height: 1.6; }
+
+/* ── Architecture ── */
+.arch-flow {
+  display: flex; align-items: center; justify-content: center;
+  gap: .5rem; flex-wrap: wrap;
+  padding: 1rem 0 .5rem;
+}
+.arch-node {
+  background: var(--accent-light);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: .6rem 1rem;
+  font-size: .85rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.arch-arrow { color: var(--muted); font-size: 1.2rem; user-select: none; }
+
+/* ── Terminal ── */
+.terminal {
+  background: var(--code-bg);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  font-family: "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas, monospace;
+  font-size: .82rem;
+  line-height: 1.65;
+  color: var(--code-text);
+  overflow-x: auto;
+}
+.terminal .prompt { color: #10b981; }
+.terminal .cmt { color: #64748b; }
+.terminal .out { color: #94a3b8; }
+
+/* ── Steps ── */
+.steps { counter-reset: step; }
+.step {
+  display: flex; gap: 1rem; padding: .75rem 0;
+  counter-increment: step;
+}
+.step-num {
+  flex-shrink: 0;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: .8rem;
+  font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.step-content { min-width: 0; }
+.step-content h3 { font-size: .95rem; font-weight: 600; margin-bottom: .15rem; }
+.step-content p { font-size: .88rem; color: var(--muted); }
+
+/* ── CLI demo ── */
+.cli-demo { margin-top: 1.5rem; }
+
+/* ── Footer ── */
+footer {
+  text-align: center;
+  padding: 2rem 1.5rem;
+  font-size: .82rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .hero h1 { font-size: 2rem; }
+  .feature-grid { grid-template-columns: 1fr; }
+  .arch-flow { flex-direction: column; }
+  .arch-arrow { transform: rotate(90deg); }
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="tagline">📦 个人创作工作台 · 开源 · 本地优先</div>
+  <h1>创作者知识库</h1>
+  <p class="sub">收集碎片，发现主题，生成素材。<br>把你的收藏夹变成 AI 辅助的创作引擎。</p>
+  <div class="hero-btns">
+    <a href="#quickstart" class="btn-primary">快速开始 →</a>
+    <a href="https://github.com/paimmme/zhihu2obsidian" class="btn-ghost">GitHub</a>
+    <a href="README.md" class="btn-ghost">文档</a>
+  </div>
+</header>
+
+<section>
+  <div class="container">
+    <h2 class="section-title">功能</h2>
+    <p class="section-desc">从数据采集到 AI 写作，全链路打通的个人知识工作台</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon">📡</div>
+        <h3>多平台同步</h3>
+        <p>知乎收藏夹、B站视频（字幕/AI摘要）、小宇宙热门播客 — 一键增量同步。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🧠</div>
+        <h3>向量知识库</h3>
+        <p>ChromaDB 中文语义搜索，按平台/作者/收藏夹筛选，自动去重与增量构建。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📊</div>
+        <h3>主题聚类</h3>
+        <p>KMeans 自动发现素材中的 15 个主题簇，LLM 生成摘要、观点、选题建议。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🃏</div>
+        <h3>素材卡片</h3>
+        <p>LLM 从每篇文章提取核心观点、论据、案例、金句、反方视角和写作角度。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">✍️</div>
+        <h3>AI 写作</h3>
+        <p>输入问题 → 自动检索知识库+卡片+主题 → 生成结构化素材包 → 可选初稿。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🔍</div>
+        <h3>质量检查</h3>
+        <p>逐段相似度分析，标注高相似段落，自动生成改写建议。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🌐</div>
+        <h3>Web 仪表盘</h3>
+        <p>Streamlit 5 面板：搜索、知识图谱、词云、主题详情、AI 写作。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🔒</div>
+        <h3>隐私优先</h3>
+        <p>所有数据存储在本地。Cookie 本地管理，API Key 本地配置，来源全程可追溯。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="quickstart">
+  <div class="container">
+    <h2 class="section-title">快速开始</h2>
+    <p class="section-desc">5 分钟从零到导出第一篇收藏</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h3>安装</h3>
+          <p>Python 3.10+，pip install</p>
+        </div>
+      </div>
+    </div>
+    <div class="terminal cli-demo">
+      <span class="cmt"># 克隆项目</span><br>
+      <span class="prompt">$</span> git clone git@github.com:paimmme/zhihu2obsidian.git<br>
+      <span class="prompt">$</span> cd zhihu2obsidian/cli<br>
+      <span class="prompt">$</span> python -m venv .venv && source .venv/bin/activate<br>
+      <span class="prompt">$</span> pip install -e ".[all]"<br><br>
+      <span class="cmt"># 初始化 + 导入 Cookie（从浏览器 DevTools 复制 z_c0 和 d_c0）</span><br>
+      <span class="prompt">$</span> zhihu2obsidian config init<br>
+      <span class="prompt">$</span> zhihu2obsidian auth login<br>
+    </div>
+    <div class="steps" style="margin-top:1rem">
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h3>同步收藏夹</h3>
+          <p>首次同步建议加 --limit 3 测试</p>
+        </div>
+      </div>
+    </div>
+    <div class="terminal cli-demo">
+      <span class="prompt">$</span> zhihu2obsidian list<br>
+      <span class="out">📂 共 2 个收藏夹<br>
+&nbsp;&nbsp;1. 我的收藏 (994375688) — 12 篇<br>
+&nbsp;&nbsp;2. tech (1003429158) — 9 篇</span><br><br>
+      <span class="prompt">$</span> zhihu2obsidian sync<br>
+      <span class="out">✅ 同步完成: 21 篇 / 35 张图片</span><br>
+    </div>
+    <div class="steps" style="margin-top:1rem">
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h3>构建知识库 + 启动仪表盘</h3>
+        </div>
+      </div>
+    </div>
+    <div class="terminal cli-demo">
+      <span class="prompt">$</span> zhihu2obsidian knowledge build<br>
+      <span class="out">🧠 向量化... 存储 398 个向量<br>
+🔗 知识图谱...<br>
+☁️ 词云...</span><br><br>
+      <span class="prompt">$</span> streamlit run web/app.py<br>
+      <span class="out">  You can now view your Streamlit app at:<br>
+  http://localhost:8501</span><br>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2 class="section-title">日常使用</h2>
+    <p class="section-desc">一次 sync，随时检索</p>
+    <div class="terminal cli-demo">
+      <span class="cmt"># 搜索素材</span><br>
+      <span class="prompt">$</span> zhihu2obsidian search "AI 编程工具" --platform zhihu<br>
+      <span class="out">🔎 搜索结果 (去重):<br>
+&nbsp;&nbsp;#1  AI编程Agent工具对比与选型实践 (score: 0.630)<br>
+&nbsp;&nbsp;#2  RAG 系统设计与实现 (score: 0.487)</span><br><br>
+      <span class="cmt"># 素材卡片抽取（一次抽取，后续增量）</span><br>
+      <span class="prompt">$</span> zhihu2obsidian knowledge cards build<br>
+      <span class="out">📄 已抽取 22 张素材卡片</span><br><br>
+      <span class="cmt"># 主题聚类</span><br>
+      <span class="prompt">$</span> zhihu2obsidian knowledge topics build<br>
+      <span class="out">📂 共 15 个主题簇</span><br><br>
+      <span class="cmt"># AI 写作（需 DeepSeek API Key）</span><br>
+      <span class="prompt">$</span> zhihu2obsidian write "古法编程值不值得坚持" --package --draft --check<br>
+      <span class="out">✍️ 生成完成。相似度检查: ✅ 原创度良好</span><br><br>
+      <span class="cmt"># 月度一键全量</span><br>
+      <span class="prompt">$</span> zhihu2obsidian monthly<br>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2 class="section-title">架构</h2>
+    <p class="section-desc">从数据采集到 AI 生成的完整管线</p>
+    <div class="arch-flow">
+      <span class="arch-node">📡 知乎 API</span>
+      <span class="arch-arrow">→</span>
+      <span class="arch-node">📄 Markdown</span>
+      <span class="arch-arrow">→</span>
+      <span class="arch-node">🧠 ChromaDB</span>
+      <span class="arch-arrow">→</span>
+      <span class="arch-node">📊 聚类 + 卡片</span>
+      <span class="arch-arrow">→</span>
+      <span class="arch-node">✍️ AI 写作</span>
+    </div>
+    <div class="arch-flow" style="margin-top:.5rem">
+      <span class="arch-node">📺 B站 API</span>
+      <span class="arch-arrow">→</span>
+      <span class="arch-node">🎬 字幕/AI摘要</span>
+      <span class="arch-arrow">→</span>
+      <span class="arch-node" colspan="3">同一 ChromaDB 向量索引</span>
+    </div>
+    <p style="text-align:center; color: var(--muted); font-size:.88rem; margin-top:1.5rem;">
+      Streamlit 仪表盘提供搜索 · 知识图谱 · 词云 · 主题 · AI 写作五面板交互
+    </p>
+  </div>
+</section>
+
+<footer>
+  <p>创作者知识库 · MIT License · 数据本地，创作自由</p>
+</footer>
+
+</body>
+</html>
