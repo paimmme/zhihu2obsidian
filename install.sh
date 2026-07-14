@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="https://github.com/zhendian/zhihu2obsidian"
+REPO="https://github.com/paimmme/zhihu2obsidian.git"
 NAME="创作者知识库 (Creator Knowledge Base)"
 
 echo "============================================"

@@ -55,7 +55,15 @@ def test_cli_knowledge_help() -> None:
     """knowledge 子命令应正常."""
     code, out = _zhihu2obsidian("knowledge", "--help")
     assert code == 0
-    for cmd in ("build", "rebuild", "status", "cards", "topics"):
+    for cmd in ("build", "rebuild", "status", "cards", "topics", "tree"):
+        assert cmd in out
+
+
+def test_cli_knowledge_tree_help() -> None:
+    """knowledge tree 子命令应正常."""
+    code, out = _zhihu2obsidian("knowledge", "tree", "--help")
+    assert code == 0
+    for cmd in ("build", "list", "view"):
         assert cmd in out
 
 
@@ -72,6 +80,20 @@ def test_cli_check_help() -> None:
     """check 子命令应正常."""
     code, out = _zhihu2obsidian("check", "--help")
     assert code == 0
+
+
+def test_cli_analyze_help() -> None:
+    """analyze 子命令应正常."""
+    code, out = _zhihu2obsidian("analyze", "--help")
+    assert code == 0
+    assert "--text" in out
+
+
+def test_cli_serve_help() -> None:
+    """serve 子命令应正常."""
+    code, out = _zhihu2obsidian("serve", "--help")
+    assert code == 0
+    assert "--port" in out
 
 
 def test_cli_monthly_help() -> None:

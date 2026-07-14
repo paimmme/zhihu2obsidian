@@ -10,15 +10,28 @@ from .config import Config
 from .converter import build_full_markdown, html_to_markdown
 from .images import download_all
 from .models import Collection, CollectionItem, CollectionState, ContentResult, ImageRef, ItemState, SyncState
+from .utils import sanitize_path, state_path_for
+
+
+def _state_path_for(base_dir: Path, account: str = "default") -> Path:
+    """Return state file path for account, migrating old .state.json if needed."""
+    p = base_dir / f".state.{account}.json"
+    if account == "default" and not p.exists():
+        old = base_dir / ".state.json"
+        if old.exists():
+            old.rename(p)
+            print(f"   📦 迁移状态文件: .state.json → .state.{account}.json")
+    return p
 
 
 class SyncEngine:
     """增量同步引擎."""
 
-    def __init__(self, config: Config, api: ZhihuAPI) -> None:
+    def __init__(self, config: Config, api: ZhihuAPI, account: str = "default") -> None:
         self.config = config
         self.api = api
-        self.state_path = config.output_path / ".state.json"
+        self.account = account
+        self.state_path = state_path_for(config.output_path, account)
         self.state = SyncState.load(self.state_path)
         self.results = {
             "added": 0,
@@ -66,7 +79,7 @@ class SyncEngine:
     def _sync_collection(self, coll: Collection, limit: int, force: bool, dry_run: bool) -> None:
         """同步单个收藏夹。"""
         coll_key = str(coll.id)
-        safe_title = self._sanitize_path(coll.title)
+        safe_title = sanitize_path(coll.title)
         output_dir_name = f"{coll_key}__{safe_title}"
         output_dir = self.config.output_path / output_dir_name
 
@@ -75,7 +88,7 @@ class SyncEngine:
         # Update or create collection state
         cstate = self.state.collections.get(coll_key)
         if not cstate:
-            cstate = CollectionState(title=coll.title, output_dir=output_dir_name)
+            cstate = CollectionState(title=coll.title, output_dir=output_dir_name, account=self.account)
             self.state.collections[coll_key] = cstate
         else:
             cstate.title = coll.title
@@ -85,6 +98,20 @@ class SyncEngine:
         if not items:
             print("   (空)\n")
             return
+
+        # Detect un-favorited items (in old state but no longer in API response)
+        current_ids = {item.content_id for item in items}
+        removed_ids = [iid for iid in cstate.items if iid not in current_ids]
+        for rid in removed_ids:
+            old = cstate.items[rid]
+            print(f"   📦 已取消收藏: {old.title[:50]:.50s}")
+            # Delete the markdown file
+            old_path = self.config.output_path / old.file_path
+            if old_path.exists():
+                old_path.unlink()
+                print(f"     已删除文件: {old.file_path}")
+            del cstate.items[rid]
+            self.results["skipped"] += 1
 
         for item in items:
             self._process_item(item, coll, cstate, output_dir, output_dir_name, force, dry_run)
@@ -113,6 +140,15 @@ class SyncEngine:
         # Convert to markdown
         markdown, images = html_to_markdown(html, cid)
 
+        # Detect content quality
+        word_count = len(markdown)
+        if word_count >= 200:
+            content_quality = "full_text"
+        elif word_count >= 50:
+            content_quality = "summary"
+        else:
+            content_quality = "too_short"
+
         # Author name fallback
         author_name = item.author_name or "知乎用户"
 
@@ -128,7 +164,9 @@ class SyncEngine:
             markdown=markdown,
             images=images,
             collect_time=item.collect_time,
-            updated_time=item.collect_time,
+            updated_time=item.updated_time,
+            content_quality=content_quality,
+            account=self.account,
         )
 
         full_md = build_full_markdown(item, content_result)
@@ -139,7 +177,7 @@ class SyncEngine:
             self.results["skipped"] += 1
             return
 
-        file_name = f"{self._sanitize_path(item.question_title or cid)[:80]} - {cid}.md"
+        file_name = f"{sanitize_path(item.question_title or cid)[:80]} - {cid}.md"
         file_path = output_dir / file_name
 
         if dry_run:
@@ -169,6 +207,8 @@ class SyncEngine:
             content_hash=content_hash,
             updated_time=item.updated_time,
             content_version=(istate.content_version + 1) if istate else 1,
+            content_quality=content_quality,
+            account=self.account,
             exported_at=__import__("datetime").datetime.now().isoformat(),
         )
 
@@ -197,11 +237,3 @@ class SyncEngine:
             return self.api.fetch_article_html(item.article_id)
         return None
 
-    @staticmethod
-    def _sanitize_path(name: str) -> str:
-        """清理文件名/目录名中的非法字符。"""
-        for ch in '/\\:*?"<>|':
-            name = name.replace(ch, "_")
-        # Collapse whitespace
-        name = " ".join(name.split())
-        return name.strip() or "untitled"

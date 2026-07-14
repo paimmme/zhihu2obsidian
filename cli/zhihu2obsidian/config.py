@@ -35,10 +35,20 @@ class Config:
             if data:
                 for key, val in data.items():
                     if hasattr(cfg, key):
+                        # Resolve $ENV_VAR references for string values
+                        if isinstance(val, str) and val.startswith("$"):
+                            env_val = os.environ.get(val[1:], "")
+                            if env_val:
+                                val = env_val
                         setattr(cfg, key, val)
         return cfg
 
     def save(self) -> None:
+        if self.deepseek_api_key:
+            import sys as _sys
+            print("⚠️  API Key 将以明文保存在 YAML 中。安全建议:", file=_sys.stderr)
+            print("   使用环境变量: export DEEPSEEK_API_KEY=sk-xxx", file=_sys.stderr)
+            print("   然后在 config.yaml 中设置 deepseek_api_key: $DEEPSEEK_API_KEY\n", file=_sys.stderr)
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         data = {
             "vault": self.vault,

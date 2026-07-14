@@ -195,6 +195,11 @@ footer {
         <p>ChromaDB 中文语义搜索，按平台/作者/收藏夹筛选，自动去重与增量构建。</p>
       </div>
       <div class="feature-card">
+        <div class="icon">🌲</div>
+        <h3>知识树</h3>
+        <p>从主题簇自动生成层级知识树，支持手动调整、文本节点匹配、覆盖规则。</p>
+      </div>
+      <div class="feature-card">
         <div class="icon">📊</div>
         <h3>主题聚类</h3>
         <p>KMeans 自动发现素材中的 15 个主题簇，LLM 生成摘要、观点、选题建议。</p>
@@ -213,6 +218,21 @@ footer {
         <div class="icon">🔍</div>
         <h3>质量检查</h3>
         <p>逐段相似度分析，标注高相似段落，自动生成改写建议。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🔌</div>
+        <h3>浏览器扩展</h3>
+        <p>Chrome MV3 扩展，右键选中文本 → 本地 API 分析 → 侧边栏显示知识树匹配/素材/风险。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">👤</div>
+        <h3>多账号</h3>
+        <p>支持多知乎账号隔离，--account 参数区分同步、知识库、导出，数据互不干扰。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📦</div>
+        <h3>JSONL 导出</h3>
+        <p>三层格式：source_items（去重+质量分）、chunks（分块RAG单元）、corpus（style/evidence）。</p>
       </div>
       <div class="feature-card">
         <div class="icon">🌐</div>
@@ -292,24 +312,32 @@ footer {
   <div class="container">
     <h2 class="section-title">日常使用</h2>
     <p class="section-desc">一次 sync，随时检索</p>
-    <div class="terminal cli-demo">
-      <span class="cmt"># 搜索素材</span><br>
-      <span class="prompt">$</span> zhihu2obsidian search "AI 编程工具" --platform zhihu<br>
-      <span class="out">🔎 搜索结果 (去重):<br>
+      <div class="terminal cli-demo">
+        <span class="cmt"># 搜索素材</span><br>
+        <span class="prompt">$</span> zhihu2obsidian search "AI 编程工具" --platform zhihu<br>
+        <span class="out">🔎 搜索结果 (去重):<br>
 &nbsp;&nbsp;#1  AI编程Agent工具对比与选型实践 (score: 0.630)<br>
 &nbsp;&nbsp;#2  RAG 系统设计与实现 (score: 0.487)</span><br><br>
-      <span class="cmt"># 素材卡片抽取（一次抽取，后续增量）</span><br>
-      <span class="prompt">$</span> zhihu2obsidian knowledge cards build<br>
-      <span class="out">📄 已抽取 22 张素材卡片</span><br><br>
-      <span class="cmt"># 主题聚类</span><br>
-      <span class="prompt">$</span> zhihu2obsidian knowledge topics build<br>
-      <span class="out">📂 共 15 个主题簇</span><br><br>
-      <span class="cmt"># AI 写作（需 DeepSeek API Key）</span><br>
-      <span class="prompt">$</span> zhihu2obsidian write "古法编程值不值得坚持" --package --draft --check<br>
-      <span class="out">✍️ 生成完成。相似度检查: ✅ 原创度良好</span><br><br>
-      <span class="cmt"># 月度一键全量</span><br>
-      <span class="prompt">$</span> zhihu2obsidian monthly<br>
-    </div>
+        <span class="cmt"># 素材卡片抽取（一次抽取，后续增量）</span><br>
+        <span class="prompt">$</span> zhihu2obsidian knowledge cards build<br>
+        <span class="out">📄 已抽取 22 张素材卡片</span><br><br>
+        <span class="cmt"># 主题聚类 + 知识树</span><br>
+        <span class="prompt">$</span> zhihu2obsidian knowledge topics build<br>
+        <span class="out">📂 共 15 个主题簇</span><br>
+        <span class="prompt">$</span> zhihu2obsidian knowledge tree build<br>
+        <span class="out">🌲 知识树已构建，15 节点</span><br><br>
+        <span class="cmt"># 启动本地 API + 浏览器扩展</span><br>
+        <span class="prompt">$</span> zhihu2obsidian serve<br>
+        <span class="out">🚀 本地 API: http://127.0.0.1:8765</span><br><br>
+        <span class="cmt"># AI 写作（需 DeepSeek API Key）</span><br>
+        <span class="prompt">$</span> zhihu2obsidian write "古法编程值不值得坚持" --package --draft --check<br>
+        <span class="out">✍️ 生成完成。相似度检查: ✅ 原创度良好</span><br><br>
+        <span class="cmt"># 月度一键全量</span><br>
+        <span class="prompt">$</span> zhihu2obsidian monthly<br>
+        <span class="cmt"># 多账号</span><br>
+        <span class="prompt">$</span> zhihu2obsidian sync --account personal<br>
+        <span class="prompt">$</span> zhihu2obsidian export --no-cards --account personal<br>
+      </div>
   </div>
 </section>
 
@@ -326,14 +354,21 @@ footer {
       <span class="arch-arrow">→</span>
       <span class="arch-node">📊 聚类 + 卡片</span>
       <span class="arch-arrow">→</span>
-      <span class="arch-node">✍️ AI 写作</span>
+      <span class="arch-node">🌲 知识树</span>
     </div>
     <div class="arch-flow" style="margin-top:.5rem">
       <span class="arch-node">📺 B站 API</span>
       <span class="arch-arrow">→</span>
       <span class="arch-node">🎬 字幕/AI摘要</span>
       <span class="arch-arrow">→</span>
-      <span class="arch-node" colspan="3">同一 ChromaDB 向量索引</span>
+      <span class="arch-node" colspan="4">同一 ChromaDB 向量索引</span>
+    </div>
+    <div class="arch-flow" style="margin-top:.5rem">
+      <span class="arch-node">🔌 浏览器扩展</span>
+      <span class="arch-arrow">←</span>
+      <span class="arch-node">🌐 本地 API</span>
+      <span class="arch-arrow">←</span>
+      <span class="arch-node" colspan="3">知识树 + 搜索 + 写作</span>
     </div>
     <p style="text-align:center; color: var(--muted); font-size:.88rem; margin-top:1.5rem;">
       Streamlit 仪表盘提供搜索 · 知识图谱 · 词云 · 主题 · AI 写作五面板交互

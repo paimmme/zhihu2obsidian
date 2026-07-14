@@ -100,6 +100,8 @@ class ContentResult:
     images: list[ImageRef]
     collect_time: int
     updated_time: int
+    content_quality: str = ""  # full_text / subtitle / summary / intro_only / too_short
+    account: str = "default"
 
 
 @dataclasses.dataclass
@@ -143,6 +145,7 @@ class CollectionState:
     title: str
     output_dir: str
     last_sync: str = ""
+    account: str = "default"
     archived: bool = False
     items: dict[str, ItemState] = dataclasses.field(default_factory=dict)
 
@@ -156,4 +159,6 @@ class ItemState:
     content_hash: str  # SHA-256 of full markdown
     updated_time: int
     content_version: int = 1
+    content_quality: str = ""
+    account: str = "default"
     exported_at: str = ""

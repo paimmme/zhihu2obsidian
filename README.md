@@ -41,7 +41,7 @@ B站视频  ──→ AI摘要/字幕 ──→ .knowledge/
 
 ```bash
 # 克隆项目
-git clone git@github.com:zhendian/zhihu2obsidian.git
+git clone git@github.com:paimmme/zhihu2obsidian.git
 cd zhihu2obsidian/cli
 
 # 创建虚拟环境
@@ -176,10 +176,9 @@ streamlit run web/app.py
 |---|---|
 | `list` | 列出收藏夹列表 |
 | `sync` | 增量同步到 vault |
-| `sync --platform bilibili` | 同步 B站 |
+| `bilibili sync` | 同步 B站 |
 | `sync --limit 5` | 限制同步数量 |
 | `status` | 查看 vault 状态 |
-| `bilibili sync` | 同步 B站（同 `sync --platform bilibili`） |
 | `xiaoyuzhou trending` | 小宇宙热门榜 |
 | `xiaoyuzhou analyze` | 风格分析 |
 | `xiaoyuzhou outline "主题"` | 播客大纲生成 |
@@ -260,8 +259,30 @@ streamlit run web/app.py
         │   ├── index.json
         │   ├── topic_001.json
         │   └── ...
+        ├── tree/                       ← 知识树 + 手动修订
+        │   ├── index.json
+        │   └── overrides.yaml
         └── embeddings/                 ← ChromaDB 持久化
 ```
+
+## 🌳 知识树与浏览器助手
+
+```bash
+# 从 topics/cards 生成稳定知识树
+zhihu2obsidian knowledge tree build
+
+# 查看知识树
+zhihu2obsidian knowledge tree list
+zhihu2obsidian knowledge tree view node_topic_001
+
+# 命令行分析一段选中文本
+zhihu2obsidian analyze --text "知乎回答片段" --json
+
+# 启动插件调用的本地 API
+zhihu2obsidian serve --port 8765
+```
+
+浏览器插件在 `extension/` 目录，Chrome/Edge 开发者模式中选择“加载已解压的扩展程序”即可。插件不会读取本地文件，只调用 `http://127.0.0.1:8765`，返回知识树位置、相似素材、写作建议和相似风险。
 
 ## ⚙️ 配置文件
 
@@ -290,7 +311,7 @@ knowledge_dir:                                # 默认: vault 内 .knowledge
 |---|---|---|
 | 基础 | `pip install -e .` | 同步 + 导出 (requests, bs4, markdownify) |
 | 知识库 | `pip install -e ".[knowledge]"` | 基础 + ChromaDB + 图谱 + 词云 |
-| Web | `pip install -e ".[web]"` | 知识库 + Streamlit 仪表盘 |
+| Web | `pip install -e ".[web]"` | 知识库 + Streamlit 仪表盘 + 本地 API |
 | 全部 | `pip install -e ".[all]"` | 完整功能 + 开发工具 |
 | 最小 | `pip install zhihu2obsidian` | 暂未发布 PyPI |
 
@@ -322,7 +343,7 @@ knowledge_dir:                                # 默认: vault 内 .knowledge
 | M2 | ✅ 完成 | 知识库 (分块/嵌入/检索) |
 | M3 | ✅ 完成 | AI 写作 (素材卡片/搜索/写作) |
 | M4 | ✅ 完成 | Streamlit 仪表盘 5 面板 |
-| M5 | ⏳ 待定 | Chrome 扩展辅助 |
+| M5 | ✅ MVP | Chrome/Edge 扩展 + 本地 API + 选中文本分析 |
 | M6 | ✅ 完成 | 多平台 (B站/小宇宙) |
 | M7 | ✅ 完成 | 主题聚类 (KMeans + LLM 主题页) |
 | M8 | ✅ 完成 | 写作素材包 (三源检索 + 结构化) |

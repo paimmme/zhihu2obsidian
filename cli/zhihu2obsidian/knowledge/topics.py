@@ -8,9 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import requests
-from sklearn.cluster import KMeans
 
 from .embedder import Embedder
 from .cards import CardExtractor, MaterialCard
@@ -84,6 +82,8 @@ class TopicClusterer:
     def cluster(self) -> list[TopicPage]:
         """全流程：获取向量 → KMeans → 生成主题页."""
         print(f"🔢 获取 {self.embedder.count()} 个向量...")
+        from sklearn.cluster import KMeans
+        import numpy as np
         results = self.embedder.collection.get(
             include=["embeddings", "metadatas", "documents"]
         )
@@ -94,6 +94,10 @@ class TopicClusterer:
 
         if len(embeddings) < self.n_topics:
             self.n_topics = max(3, len(embeddings) // 3)
+
+        if len(embeddings) < min(3, self.n_topics):
+            print(f"   ⚠ 向量数 ({len(embeddings)}) 不足以聚类，跳过")
+            return []
 
         print(f"🧮 KMeans 聚类 (n={self.n_topics})...")
         kmeans = KMeans(n_clusters=self.n_topics, random_state=42, n_init=10)

@@ -60,9 +60,11 @@ def main() -> None:
     sync_p.add_argument("--limit", type=int, default=0, help="限制导出条数")
     sync_p.add_argument("--dry-run", action="store_true", help="预览模式（不写入）")
     sync_p.add_argument("--force", action="store_true", help="强制重新导出所有内容")
+    sync_p.add_argument("--account", default="default", help="账号名称（多账号时切换）")
 
     # status
-    sub.add_parser("status", help="查看同步状态")
+    status_p = sub.add_parser("status", help="查看同步状态")
+    status_p.add_argument("--account", default="default", help="账号名称")
 
     # knowledge
     kn_p = sub.add_parser("knowledge", help="知识库管理")
@@ -91,6 +93,14 @@ def main() -> None:
     kn_topics_sub.add_parser("list", help="列出所有主题")
     kn_topics_view = kn_topics_sub.add_parser("view", help="查看单个主题")
     kn_topics_view.add_argument("id", help="主题 ID (eg. topic_001)")
+
+    # tree (知识库子命令)
+    kn_tree = kn_sub.add_parser("tree", help="知识树管理")
+    kn_tree_sub = kn_tree.add_subparsers(dest="tree_cmd")
+    kn_tree_sub.add_parser("build", help="从主题页生成知识树")
+    kn_tree_sub.add_parser("list", help="列出知识树节点")
+    kn_tree_view = kn_tree_sub.add_parser("view", help="查看知识树节点")
+    kn_tree_view.add_argument("id", help="节点 ID (eg. node_topic_001)")
 
     # search
     search_p = sub.add_parser("search", help="语义搜索知识库")
@@ -121,6 +131,20 @@ def main() -> None:
     check_p.add_argument("--rewrite", action="store_true", help="为高相似段落生成改写建议")
     check_p.add_argument("--raw", action="store_true", help="只输出报告正文")
 
+    # analyze
+    analyze_p = sub.add_parser("analyze", help="分析选中文本并匹配知识树")
+    analyze_p.add_argument("--text", required=True, help="要分析的文本")
+    analyze_p.add_argument("--url", default="", help="来源 URL")
+    analyze_p.add_argument("--page-title", default="", help="页面标题")
+    analyze_p.add_argument("--question-title", default="", help="知乎问题标题")
+    analyze_p.add_argument("--author", default="", help="当前回答作者")
+    analyze_p.add_argument("--json", action="store_true", help="输出 JSON")
+
+    # serve
+    serve_p = sub.add_parser("serve", help="启动本地浏览器插件 API")
+    serve_p.add_argument("--host", default="127.0.0.1", help="监听地址")
+    serve_p.add_argument("--port", type=int, default=8765, help="监听端口")
+
     # bilibili
     bili_p = sub.add_parser("bilibili", help="Bilibili 收藏夹操作")
     bili_sub = bili_p.add_subparsers(dest="bilibili_cmd", required=True)
@@ -129,6 +153,7 @@ def main() -> None:
     bili_sync.add_argument("--id", type=str, dest="collection_id", help="只同步指定收藏夹 ID")
     bili_sync.add_argument("--limit", type=int, default=0, help="限制导出条数")
     bili_sync.add_argument("--force", action="store_true", help="强制重新导出")
+    bili_sync.add_argument("--account", default="default", help="账号名称")
 
     # xiaoyuzhou
     xyz_p = sub.add_parser("xiaoyuzhou", help="小宇宙播客热门榜")
@@ -141,7 +166,16 @@ def main() -> None:
     xyz_outline.add_argument("--llm", action="store_true", help="使用 DeepSeek 生成（需设置 key）")
 
     # monthly
-    sub.add_parser("monthly", help="月度全平台同步 + 知识库构建 + 卡片抽取")
+    monthly_p = sub.add_parser("monthly", help="月度全平台同步 + 知识库构建 + 卡片抽取")
+    monthly_p.add_argument("--account", default="default", help="账号名称")
+
+    # export
+    export_p = sub.add_parser("export", help="导出资料为 AI 友好格式 (JSONL + 分块 + 素材卡)")
+    export_p.add_argument("--output", "-o", help="输出目录（默认: Vault/.knowledge/export）")
+    export_p.add_argument("--model", default="deepseek-v4-flash", help="DeepSeek 模型名（素材卡抽取用）")
+    export_p.add_argument("--max-cards", type=int, default=0, help="限制素材卡抽取数（0=全部）")
+    export_p.add_argument("--no-cards", action="store_true", help="跳过素材卡抽取")
+    export_p.add_argument("--account", default="default", help="账号名称（筛选导出）")
 
     args = parser.parse_args()
     config = Config.load()
@@ -168,8 +202,14 @@ def main() -> None:
         _handle_write(config, args)
     elif args.command == "check":
         _handle_check(config, args)
+    elif args.command == "analyze":
+        _handle_analyze(config, args)
+    elif args.command == "serve":
+        _handle_serve(config, args)
     elif args.command == "monthly":
         _handle_monthly(config, args)
+    elif args.command == "export":
+        _handle_export(config, args)
 
 
 def _get_api(config: Config) -> ZhihuAPI:
@@ -318,7 +358,7 @@ def _handle_sync(config: Config, args) -> None:
         sys.exit(1)
 
     api = _get_api(config)
-    engine = SyncEngine(config, api)
+    engine = SyncEngine(config, api, account=args.account)
 
     print(f"🔁 同步到: {config.output_path}\n")
 
@@ -345,7 +385,9 @@ def _handle_status(config: Config, args) -> None:
     if not config.vault:
         print("❌ vault 路径未设置")
         return
-    state_file = config.output_path / ".state.json"
+    account = getattr(args, 'account', 'default')
+    from .utils import state_path_for
+    state_file = state_path_for(config.output_path, account)
     if not state_file.exists():
         print("📭 尚未同步")
         return
@@ -362,164 +404,21 @@ def _handle_status(config: Config, args) -> None:
 
 
 def _handle_knowledge(config: Config, args) -> None:
-    """知识库管理."""
+    """知识库管理 (分派到 builder 模块)."""
     if not config.vault:
         print("❌ vault 路径未设置")
         sys.exit(1)
 
-    out = config.knowledge_path
     vault_dir = config.output_path
+    out = config.knowledge_path
 
-    if args.knowledge_cmd == "build":
+    if args.knowledge_cmd in ("build", "rebuild"):
         # Lazy import (可选依赖)
-        from .knowledge.chunker import chunk_all_markdowns, chunk_markdown_file
-        from .knowledge.embedder import Embedder
-        from .knowledge.graph import save_graph_html
-        from .knowledge.wordcloud import generate_wordcloud
-
-        out.mkdir(parents=True, exist_ok=True)
-        embedder = Embedder(out)
-
-        # 1. Check for changed files
-        print("🔍 检查文件变更...")
-        changed, removed = embedder.get_changed_files(vault_dir)
-        had_changes = bool(changed or removed)
-
-        if removed:
-            print(f"   移除 {len(removed)} 个废弃文件")
-            for rel in removed:
-                # Prefer manifest-tracked chunk_ids (precise)
-                embedder.remove_file_chunks(rel)
-                # Fallback: also try content_id from path in case manifest missed it
-                p = Path(rel)
-                parent = p.parent.name
-                content_id = f"{parent}__{p.stem}" if parent not in (".", "") else p.stem
-                n = embedder.remove_by_content_id(content_id)
-                if n:
-                    print(f"   🧹 {rel}: 清理 {n} 旧向量")
-
-        if changed:
-            print(f"   检测到 {len(changed)} 个文件变更")
-            for fpath in changed:
-                rel = str(fpath.relative_to(vault_dir))
-                print(f"   📄 {rel}")
-                try:
-                    file_chunks = chunk_markdown_file(fpath)
-                    if not file_chunks:
-                        continue
-                    # Cleanup old chunks by content_id
-                    cid = file_chunks[0].content_id
-                    n_removed = embedder.remove_by_content_id(cid)
-                    if n_removed:
-                        print(f"      → 逐出 {n_removed} 旧块")
-                    # Add new chunks with rel_path for manifest tracking
-                    n_new = embedder.add_chunks(file_chunks, rel_path=rel)
-                    print(f"      → 新增 {n_new} 块")
-                except Exception as e:
-                    print(f"      ⚠ {e}")
-
-        if not had_changes:
-            st = embedder.stats()
-            print(f"   无变更 (库中 {st['total_chunks']} 块, 跟踪 {st['tracked_files']} 文件)\n")
-
-        # 2. Update manifest file hashes
-        if changed:
-            embedder.update_file_hashes(vault_dir, [f for f in changed if f.exists()])
-
-        # 3. Always re-chunk (graph/wordcloud need all chunks)
-        print(f"🔪 分块{' (增量)' if had_changes else '...'}")
-        chunks = chunk_all_markdowns(vault_dir)
-        print(f"   {len(chunks)} 个文本块\n")
-
-        if not chunks:
-            print("❌ 没有 Markdown 文件可处理。请先运行 sync。")
-            return
-
-        # 4. Stats
-        print(f"🧠 知识库向量: {embedder.count()} 个\n")
-
-        # 4. Graph
-        print("🔗 知识图谱...")
-        graph_path = out / "graph.html"
-        try:
-            save_graph_html(chunks, graph_path)
-            print(f"   {graph_path}\n")
-        except Exception as e:
-            print(f"   ⚠ 图谱生成失败: {e}\n")
-
-        # 5. Word cloud
-        print("☁️ 词云...")
-        wc_path = out / "wordcloud.png"
-        try:
-            generate_wordcloud(chunks, wc_path)
-            print(f"   {wc_path}\n")
-        except Exception as e:
-            print(f"   ⚠ 词云生成失败: {e}\n")
-
-        # Stats
-        st = embedder.stats()
-        print(f"📊 知识库统计:")
-        print(f"   文本块: {len(chunks)}")
-        print(f"   向量:   {st['total_chunks']}")
-        print(f"   跟踪:   {st['tracked_files']} 个文件")
-
-    elif args.knowledge_cmd == "rebuild":
-        # Full rebuild
-        from .knowledge.chunker import chunk_all_markdowns
-        from .knowledge.embedder import Embedder
-        from .knowledge.graph import save_graph_html
-        from .knowledge.wordcloud import generate_wordcloud
-
-        out.mkdir(parents=True, exist_ok=True)
-        embedder = Embedder(out)
-        embedder.delete_collection()
-
-        print("🔪 分块...")
-        chunks = chunk_all_markdowns(vault_dir)
-        print(f"   {len(chunks)} 个文本块\n")
-
-        if not chunks:
-            print("❌ 没有 Markdown 文件可处理。请先运行 sync。")
-            return
-
-        print("🧠 向量化...")
-        # Group by source file for per-file chunk tracking
-        from collections import defaultdict
-        from .knowledge.chunker import Chunk
-        file_groups: dict[str, list[Chunk]] = defaultdict(list)  # type: ignore[assignment]
-        for c in chunks:
-            rel = c.metadata.get("source", "")
-            file_groups[rel].append(c)
-        n = 0
-        for rel, group in sorted(file_groups.items()):
-            n += embedder.add_chunks(group, rel_path=rel)
-        print(f"   存储 {n} 个向量\n")
-
-        # Update manifest: set file hashes AND preserve chunk hashes
-        all_md = sorted(vault_dir.rglob("*.md"))
-        embedder.update_file_hashes(vault_dir, [f for f in all_md if ".state" not in str(f) and f.name != "README.md"])
-
-        print("🔗 知识图谱...")
-        graph_path = out / "graph.html"
-        try:
-            save_graph_html(chunks, graph_path)
-            print(f"   {graph_path}\n")
-        except Exception as e:
-            print(f"   ⚠ 图谱生成失败: {e}\n")
-
-        print("☁️ 词云...")
-        wc_path = out / "wordcloud.png"
-        try:
-            generate_wordcloud(chunks, wc_path)
-            print(f"   {wc_path}\n")
-        except Exception as e:
-            print(f"   ⚠ 词云生成失败: {e}\n")
-
-        st = embedder.stats()
-        print(f"📊 知识库统计:")
-        print(f"   文本块: {len(chunks)}")
-        print(f"   向量:   {st['total_chunks']}")
-
+        from .knowledge.builder import run_knowledge_build, run_knowledge_rebuild
+        if args.knowledge_cmd == "build":
+            run_knowledge_build(vault_dir, out)
+        else:
+            run_knowledge_rebuild(vault_dir, out)
     elif args.knowledge_cmd == "status" or not args.knowledge_cmd:
         if not out.exists():
             print("📭 知识库尚未构建")
@@ -543,6 +442,8 @@ def _handle_knowledge(config: Config, args) -> None:
         _handle_knowledge_cards(config, args)
     elif args.knowledge_cmd == "topics":
         _handle_knowledge_topics(config, args)
+    elif args.knowledge_cmd == "tree":
+        _handle_knowledge_tree(config, args)
     else:
         print("未知子命令。用法: zhihu2obsidian knowledge {build|rebuild|status|cards|topics}")
 
@@ -584,124 +485,10 @@ def _handle_bilibili(config: Config, args) -> None:
                 print(f"         {c.description[:60]}")
             print()
     elif args.bilibili_cmd == "sync":
-        _handle_bilibili_sync(config, bp, args)
-
-
-def _handle_bilibili_sync(config: Config, bp, args) -> None:
-    """同步 Bilibili 收藏夹到 vault."""
-    import datetime
-    import hashlib
-    import html as html_mod
-    import json
-    import re
-
-    from .converter import html_to_markdown
-    from .models import CollectionState, SyncState
-
-    if not config.vault:
-        print("❌ vault 路径未设置")
-        sys.exit(1)
-
-    ok, msg = bp.check_auth()
-    if not ok:
-        print(f"❌ {msg}")
-        print(f"   请先运行: zhihu2obsidian auth login --platform bilibili")
-        sys.exit(1)
-    print(f"✅ {msg}\n")
-
-    out_root = config.output_path / "bilibili"
-    out_root.mkdir(parents=True, exist_ok=True)
-    state_file = out_root / ".state.json"
-    state = SyncState.load(state_file)
-
-    cols = bp.list_collections()
-    if args.collection_id:
-        cols = [c for c in cols if c.id == args.collection_id]
-
-    total_new = total_fail = total_skip = 0
-
-    for col in cols:
-        safe_title = re.sub(r'[\\/:*?"<>|]', "_", col.title).strip()
-        cname = f"{col.id}__{safe_title}"
-        cdir = out_root / cname
-        cdir.mkdir(parents=True, exist_ok=True)
-
-        print(f"📁 {col.title} ({col.item_count} 条)")
-        cstate = state.collections.get(col.id)
-        if not cstate:
-            cstate = CollectionState(title=col.title, output_dir=cname)
-            state.collections[col.id] = cstate
-
-        items = bp.get_items(col)
-        limit = args.limit or len(items)
-
-        for item in items[:limit]:
-            cid = item.content_id
-            istate = cstate.items.get(cid)
-
-            if not args.force and istate and istate.content_hash:
-                # Check if content was updated since last sync
-                item_updated = getattr(item, 'updated_time', None) or 0
-                istate_updated = getattr(istate, 'updated_time', None) or 0
-                if item_updated > istate_updated:
-                    print(f"   ♻️  {item.title[:50]:.50s} (内容已更新)")
-                else:
-                    total_skip += 1
-                    print(f"   ⏭️  {item.title[:50]:.50s} (已有)")
-                    continue
-
-            content = bp.get_content(item)
-            if not content:
-                total_fail += 1
-                print(f"   ❌ {item.title[:50]:.50s} (无内容)")
-                continue
-
-            # Video returns markdown directly, article returns HTML
-            if content.strip().startswith("<"):
-                md_text, images = html_to_markdown(content, cid)
-            else:
-                md_text = content
-                images = []
-            now_iso = datetime.datetime.now().isoformat()
-
-            lines = ["---"]
-            lines.append(f'title: "{html_mod.escape(item.title)}"')
-            lines.append(f'url: "{item.url}"')
-            lines.append('platform: "bilibili"')
-            lines.append(f'type: "{item.type}"')
-            lines.append(f'author: "{html_mod.escape(item.author_name)}"')
-            if item.collect_time:
-                lines.append(f'collected: {datetime.datetime.fromtimestamp(item.collect_time).strftime("%Y-%m-%d")}')
-            lines.append(f'collection: "{col.title}"')
-            lines.append(f'exported: "{now_iso}"')
-            lines.append("---\n")
-            lines.append(md_text)
-
-            full_md = "\n".join(lines)
-            safe_fname = re.sub(r'[\\/:*?"<>|]', "_", f"{item.title[:60]} - {cid}.md")
-            fpath = cdir / safe_fname
-            fpath.write_text(full_md, encoding="utf-8")
-
-            from .models import ItemState
-            cstate.items[cid] = ItemState(
-                url=item.url,
-                title=item.title,
-                file_path=f"bilibili/{cname}/{safe_fname}",
-                content_hash=hashlib.sha256(full_md.encode()).hexdigest()[:16],
-                updated_time=item.updated_time,
-                exported_at=now_iso,
-            )
-            total_new += 1
-            print(f"   ✅ {item.title[:60]:.60s}")
-
-        state.save(state_file)
-
-    print(f"\n{'='*40}")
-    print(f"📊 Bilibili 同步完成:")
-    print(f"   新增: {total_new}")
-    print(f"   跳过: {total_skip}")
-    print(f"   失败: {total_fail}")
-    print(f"   输出: {out_root}")
+        from .platforms.bilibili import sync_bilibili
+        sync_bilibili(config, bp, account=getattr(args, 'account', 'default'),
+                       collection_id=getattr(args, 'collection_id', None),
+                       limit=getattr(args, 'limit', 0), force=getattr(args, 'force', False))
 
 
 # ── 知识搜索与写作 ────────────────────────────────────
@@ -1257,6 +1044,54 @@ def _handle_knowledge_topics(config: Config, args) -> None:
         print("用法: zhihu2obsidian knowledge topics {build|rebuild|list|view}")
 
 
+def _handle_knowledge_tree(config: Config, args) -> None:
+    """知识树管理."""
+    if not config.vault:
+        print("❌ vault 路径未设置")
+        return
+
+    from .tree.builder import KnowledgeTreeBuilder
+
+    builder = KnowledgeTreeBuilder(config.knowledge_path)
+    cmd = args.tree_cmd or "list"
+
+    if cmd == "build":
+        tree = builder.build()
+        print(f"🌳 知识树已生成: {builder.index_file}")
+        print(f"   节点: {len(tree.get('nodes', []))}")
+    elif cmd == "list":
+        nodes = builder.list_nodes()
+        if not nodes:
+            print("📭 暂无知识树。请先运行: zhihu2obsidian knowledge tree build")
+            return
+        print(f"🌳 共 {len(nodes)} 个知识树节点:\n")
+        for node in nodes:
+            keywords = ", ".join(node.get("keywords", [])[:5]) or "-"
+            print(f"  {node['id']}: {node.get('title', '')}")
+            print(f"     素材: {len(node.get('content_ids', []))} 条 | 关键词: {keywords}")
+            print()
+    elif cmd == "view":
+        node = builder.get_node(args.id)
+        if not node:
+            print(f"❌ 节点不存在: {args.id}")
+            return
+        print(f"\n🌳 {node.get('title', '')}")
+        print(f"   节点 ID: {node.get('id')}")
+        if node.get("parent_id"):
+            print(f"   父节点: {node.get('parent_id')}")
+        print(f"   素材数: {len(node.get('content_ids', []))}")
+        print(f"\n📝 摘要: {node.get('summary', '')}")
+        if node.get("keywords"):
+            print(f"\n🏷 关键词: {', '.join(node.get('keywords', []))}")
+        if node.get("representative_chunks"):
+            print("\n📄 代表素材:")
+            for rc in node.get("representative_chunks", [])[:5]:
+                print(f"  [{rc.get('platform', '?')}] {rc.get('title', '')} — {rc.get('author', '')}")
+        print()
+    else:
+        print("用法: zhihu2obsidian knowledge tree {build|list|view}")
+
+
 def _handle_check(config: Config, args) -> None:
     """写作质量检查."""
     from .agent.checker import check_text
@@ -1308,19 +1143,96 @@ def _handle_check(config: Config, args) -> None:
         print(output)
 
 
+def _handle_analyze(config: Config, args) -> None:
+    """分析选中文本."""
+    import json
+
+    retriever = None
+    if config.knowledge_path.exists():
+        try:
+            from .agent.retriever import Retriever
+            retriever = Retriever(config.knowledge_path)
+        except Exception:
+            retriever = None
+
+    from .server.analyzer import SelectionAnalyzer
+
+    analyzer = SelectionAnalyzer(
+        knowledge_dir=config.knowledge_path,
+        retriever=retriever,
+        api_key=config.deepseek_api_key,
+    )
+    result = analyzer.analyze(
+        text=args.text,
+        url=args.url,
+        page_title=args.page_title,
+        question_title=args.question_title,
+        author=args.author,
+    )
+
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
+
+    print("🔎 分析结果\n")
+    if result["matched_tree_nodes"]:
+        print("🌳 知识树匹配:")
+        for node in result["matched_tree_nodes"]:
+            print(f"  - {' / '.join(node['path'])}  score={node['score']}")
+            print(f"    {node['reason']}")
+    else:
+        print("🌳 未匹配到知识树节点")
+
+    if result["similar_sources"]:
+        print("\n📚 相似素材:")
+        for src in result["similar_sources"]:
+            print(f"  - [{src.get('platform', '')}] {src.get('title', '')} ({src.get('author', '')}) score={src.get('score')}")
+            if src.get("quote"):
+                print(f"    {src['quote'][:120]}")
+
+    if result["writing_suggestions"]:
+        print("\n✍️ 写作建议:")
+        for item in result["writing_suggestions"]:
+            print(f"  - {item}")
+
+    if result["risks"]:
+        print("\n⚠ 相似风险:")
+        for risk in result["risks"]:
+            print(f"  - [{risk['level']}] {risk['message']}")
+
+
+def _handle_serve(config: Config, args) -> None:
+    """启动本地 API 服务."""
+    try:
+        import uvicorn
+    except ImportError:
+        print("❌ 需要安装 uvicorn: pip install uvicorn fastapi")
+        return
+
+    from .server.app import create_app
+
+    app = create_app(config)
+    print(f"🚀 本地 API: http://{args.host}:{args.port}")
+    uvicorn.run(app, host=args.host, port=args.port)
+
+
 def _handle_monthly(config: Config, args) -> None:
     """月度全平台同步 + 知识库构建 + 卡片抽取."""
     import subprocess
     import sys
 
+    account = getattr(args, 'account', 'default')
+    acc_args = ["--account", account] if account != "default" else []
+
     base = [sys.executable, "-m", "zhihu2obsidian"]
     cmds: list[list[str]] = [
-        [*base, "sync"],
-        [*base, "bilibili", "sync"],
+        [*base, "sync", *acc_args],
+        [*base, "bilibili", "sync", *acc_args],
         [*base, "knowledge", "build"],
     ]
     if config.deepseek_api_key:
         cmds.append([*base, "knowledge", "cards", "build"])
+    cmds.append([*base, "export", "--no-cards", *acc_args])
 
     print("🌙 月度全平台同步\n")
     for cmd in cmds:
@@ -1332,5 +1244,25 @@ def _handle_monthly(config: Config, args) -> None:
     print("\n✅ 月度同步完成")
 
 
+# ── AI 友好导出 ────────────────────────────────────
+def _handle_export(config: Config, args) -> None:
+    """导出资料为 AI 友好格式 (JSONL + 分块 + 素材卡 + 分层语料库)."""
+    out_dir = Path(args.output) if args.output else config.output_path / "export"
+    from .export import run_export
+    api_key = config.deepseek_api_key or ""
+    if getattr(args, 'no_cards', False):
+        api_key = ""
+    account = getattr(args, 'account', 'default')
+    run_export(
+        vault_dir=config.output_path,
+        out_dir=out_dir,
+        api_key=api_key,
+        model=getattr(args, 'model', "deepseek-v4-flash"),
+        max_cards=getattr(args, 'max_cards', 0) or 0,
+        account=account if account != "default" else None,
+    )
+
+
+# ── CLI 入口 ──────────────────────────────────────
 if __name__ == "__main__":
     main()

@@ -95,14 +95,21 @@ def build_frontmatter(
     title: str,
     url: str,
     author: str,
-    author_url: str,
-    content_type: str,
-    content_id: str,
-    collection_title: str,
-    collection_id: int,
-    collect_time: int,
+    author_url: str = "",
+    content_type: str = "",
+    content_id: str = "",
+    collection_title: str = "",
+    collection_id: int = 0,
+    collect_time: int = 0,
+    content_quality: str = "",
+    platform: str = "zhihu",
+    account: str = "default",
+    extra: dict[str, str] | None = None,
 ) -> str:
-    """生成 YAML frontmatter."""
+    """生成 YAML frontmatter.
+
+    extra: 平台特有字段（如 bilibili 的 type、collected）会追加到 tags 前。
+    """
 
     def esc(val: str) -> str:
         val = val.replace("\\", "\\\\").replace('"', '\\"')
@@ -114,27 +121,35 @@ def build_frontmatter(
     lines.append(f"title: {esc(title)}")
     lines.append(f"url: {esc(url)}")
     lines.append(f"author: {esc(author)}")
-    lines.append("platform: zhihu")
-    lines.append(f"source: 知乎收藏")
+    lines.append(f"platform: {platform}")
+    lines.append(f"source: 知乎收藏" if platform == "zhihu" else "source: bilibili收藏")
     lines.append(f"collection: {esc(collection_title)}")
     lines.append(f"collection_id: {collection_id}")
     lines.append(f"content_type: {content_type}")
     lines.append(f"content_id: {content_id}")
+    if content_quality:
+        lines.append(f"content_quality: {content_quality}")
+    lines.append(f"account: {account}")
     if collect_time:
         import datetime
         dt = datetime.datetime.fromtimestamp(collect_time, tz=datetime.timezone.utc)
         lines.append(f"created: {dt.strftime('%Y-%m-%d')}")
+    # Platform-specific extras
+    if extra:
+        for k, v in extra.items():
+            if v:
+                lines.append(f"{k}: {v}")
     import datetime
     lines.append(f"exported_at: {datetime.datetime.now(datetime.timezone.utc).isoformat()}")
     lines.append("tags:")
-    lines.append("  - zhihu")
+    lines.append(f"  - {platform}")
     lines.append(f"  - {esc(collection_title)}")
     lines.append("---")
     return "\n".join(lines)
 
 
 def build_full_markdown(item: CollectionItem, result: ContentResult) -> str:
-    """组装完整的 Markdown 文件内容."""
+    """组装完整的 Markdown 文件内容 — 正文不含冗余 boilerplate，metadata 全在 frontmatter."""
     parts = []
 
     parts.append(build_frontmatter(
@@ -147,18 +162,13 @@ def build_full_markdown(item: CollectionItem, result: ContentResult) -> str:
         collection_title=result.collection_title,
         collection_id=result.collection_id,
         collect_time=result.collect_time,
+        content_quality=result.content_quality,
+        platform="zhihu",
+        account=result.account,
     ))
-
-    parts.append(f"\n> 来源: {result.url}\n")
-    parts.append(f"# {result.title}")
-
-    if result.author_name:
-        parts.append(f"\n> 回答 by [{result.author_name}]({result.author_url})")
 
     parts.append("")
     parts.append(result.markdown)
     parts.append("")
-    parts.append("---")
-    parts.append(f"原文链接：[{result.title}]({result.url})")
 
     return "\n".join(parts)

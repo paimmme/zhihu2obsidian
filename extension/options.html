@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <title>知识树助手设置</title>
+    <style>
+      body { font: 14px/1.5 system-ui, sans-serif; max-width: 640px; margin: 32px auto; }
+      label { display: block; margin-bottom: 12px; }
+      input { width: 100%; box-sizing: border-box; padding: 8px; }
+      button { padding: 8px 12px; }
+      pre { background: #f1f5f9; padding: 12px; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <h1>知识树助手设置</h1>
+    <label>
+      本地服务地址
+      <input id="apiBase" value="http://127.0.0.1:8765">
+    </label>
+    <button id="save">保存</button>
+    <button id="health">检查服务</button>
+    <pre id="result"></pre>
+    <script src="options.js"></script>
+  </body>
+</html>

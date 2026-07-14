@@ -24,10 +24,22 @@ Thumbs.db
 cli/.knowledge/
 web/.streamlit/
 
+# Generated output (privacy — collected content)
+zhihu2obsidian/
+.state.json
+.knowledge/
+*.sqlite3
+
+# Cookies (privacy — auth tokens)
+cookies.json
+bilibili_cookies.json
+cli/cookies.json
+
 # Temporary files
 .tmp/
 
-# Deprecated Chrome extension (phase M5 — not needed for Python CLI)
+# Cache
+.codegraph/
 background.js
 edge/
 icons/

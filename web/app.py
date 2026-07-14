@@ -319,7 +319,7 @@ if page == "知识图谱":
                 st.warning("⚠ 知识图谱未生成。请运行 `zhihu2obsidian knowledge build`")
             else:
                 html_content = graph_file.read_text(encoding="utf-8")
-                st.components.v1.html(html_content, height=600, scrolling=True)
+                st.html(html_content)
 
             # Stats
             assert retriever is not None

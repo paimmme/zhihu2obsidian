@@ -175,7 +175,7 @@ class CardExtractor:
         max_chars = 3000
         truncated = body[:max_chars]
         if len(body) > max_chars:
-            truncated += "\n\n[内容已截断 — 共 {len(body)} 字符]"
+            truncated += f"\n\n[内容已截断 — 共 {len(body)} 字符]"
 
         system_prompt = BILIBILI_CARD_PROMPT if platform == "bilibili" else ZHIHU_CARD_PROMPT
         user_prompt = f"## 标题\n{title}\n\n## 作者\n{author}\n\n## 正文\n{truncated}"
