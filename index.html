@@ -3,381 +3,601 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>创作者知识库 · Creator Knowledge Base</title>
-<meta name="description" content="把你的收藏夹变成创作引擎。自动同步知乎/B站收藏 → 向量知识库 → 主题聚类 → AI 写作助手。">
+<title>Zhihu2Obsidian — 把你的收藏夹变成创作引擎</title>
+<meta name="description" content="自动同步知乎/B站收藏 → 向量知识库 → 知识树 → AI 写作助手。本地优先，开源免费。">
 <style>
 :root {
-  --bg: #fafafa;
+  --bg: #f8fafc;
   --surface: #fff;
-  --text: #1a1a2e;
-  --muted: #64748b;
+  --text: #0f172a;
+  --text-secondary: #475569;
+  --muted: #94a3b8;
   --accent: #2563eb;
-  --accent-light: #eff6ff;
+  --accent-hover: #1d4ed8;
+  --accent-light: #dbeafe;
+  --accent-bg: #eff6ff;
   --border: #e2e8f0;
   --code-bg: #0f172a;
   --code-text: #e2e8f0;
   --radius: 12px;
-  --max-w: 960px;
+  --radius-sm: 8px;
+  --max-w: 1100px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { background: var(--bg); color: var(--text); line-height: 1.7; -webkit-font-smoothing: antialiased; }
 
+/* ── Utility ── */
+.container { max-width: var(--max-w); margin: 0 auto; padding: 0 1.5rem; }
+.section { padding: 5rem 0; }
+.section:nth-child(even) { background: var(--surface); }
+.section-header { text-align: center; margin-bottom: 3.5rem; }
+.section-header h2 { font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; }
+.section-header p { color: var(--text-secondary); margin-top: .5rem; font-size: 1.05rem; }
+
+/* ── Nav ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  background: rgba(15,23,42,.85); backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 100;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+nav .container {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px;
+}
+nav .logo { color: #f1f5f9; font-weight: 700; font-size: 1.05rem; text-decoration: none; }
+nav .nav-links { display: flex; gap: 1.5rem; align-items: center; }
+nav .nav-links a { color: #94a3b8; text-decoration: none; font-size: .88rem; transition: color .15s; }
+nav .nav-links a:hover { color: #f1f5f9; }
+nav .nav-links .btn-small {
+  background: var(--accent); color: #fff;
+  padding: .4rem 1rem; border-radius: 6px; font-weight: 500;
+}
+nav .nav-links .btn-small:hover { background: var(--accent-hover); color: #fff; }
+
 /* ── Hero ── */
 .hero {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: #f1f5f9;
-  padding: 5rem 1.5rem 4rem;
-  text-align: center;
+  min-height: 85vh;
+  background: linear-gradient(135deg, #0b1120 0%, #172033 50%, #0f1a2e 100%);
+  display: flex; align-items: center;
+  padding-top: 56px; overflow: hidden;
+  position: relative;
 }
-.hero h1 {
-  font-size: 2.8rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  margin-bottom: .5rem;
+.hero::before {
+  content: ''; position: absolute;
+  top: -40%; right: -20%;
+  width: 800px; height: 800px;
+  background: radial-gradient(circle, rgba(37,99,235,.08) 0%, transparent 70%);
+  pointer-events: none;
 }
-.hero .sub { font-size: 1.15rem; color: #94a3b8; max-width: 600px; margin: 0 auto 2rem; }
-.hero .tagline {
-  display: inline-block;
-  background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 100px;
-  padding: .35rem 1rem;
-  font-size: .85rem;
-  color: #94a3b8;
-  margin-bottom: 1.5rem;
+.hero .container {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 3rem; align-items: center;
+  position: relative; z-index: 1;
 }
-.hero-btns { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; }
+.hero-content h1 {
+  font-size: 3.2rem; font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+  color: #f8fafc;
+}
+.hero-content .gradient-text {
+  background: linear-gradient(135deg, #60a5fa, #a78bfa);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero-content p {
+  font-size: 1.1rem; color: #94a3b8;
+  margin: 1.2rem 0 2rem; max-width: 460px;
+  line-height: 1.7;
+}
+.hero-btns { display: flex; gap: .75rem; flex-wrap: wrap; }
 .hero-btns a {
   display: inline-flex; align-items: center; gap: .4rem;
-  padding: .7rem 1.5rem;
-  border-radius: 8px;
-  font-size: .95rem;
-  font-weight: 500;
+  padding: .75rem 1.5rem;
+  border-radius: var(--radius-sm);
+  font-size: .95rem; font-weight: 500;
   text-decoration: none;
   transition: all .15s;
 }
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-primary:hover { background: #1d4ed8; }
-.btn-ghost { border: 1px solid rgba(255,255,255,.2); color: #e2e8f0; }
-.btn-ghost:hover { background: rgba(255,255,255,.06); }
+.hero-btns .btn-primary { background: var(--accent); color: #fff; }
+.hero-btns .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+.hero-btns .btn-ghost { border: 1px solid rgba(255,255,255,.15); color: #e2e8f0; }
+.hero-btns .btn-ghost:hover { background: rgba(255,255,255,.06); }
 
-/* ── Sections ── */
-section { padding: 3.5rem 1.5rem; }
-section:nth-child(even) { background: var(--surface); }
-.container { max-width: var(--max-w); margin: 0 auto; }
-.section-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  margin-bottom: .25rem;
+/* ── Hero Mockup ── */
+.hero-mockup {
+  position: relative;
 }
-.section-desc { color: var(--muted); margin-bottom: 2rem; font-size: .95rem; }
+.mockup-window {
+  background: #1a2332; border-radius: var(--radius);
+  border: 1px solid rgba(255,255,255,.08);
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,.5);
+}
+.mockup-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 12px 16px;
+  background: rgba(255,255,255,.04);
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.mockup-dot { width: 10px; height: 10px; border-radius: 50%; }
+.mockup-dot:nth-child(1) { background: #ef4444; }
+.mockup-dot:nth-child(2) { background: #f59e0b; }
+.mockup-dot:nth-child(3) { background: #10b981; }
+.mockup-body { padding: 1.25rem; font-family: "SF Mono","Fira Code",monospace; font-size: .75rem; line-height: 1.6; color: #cbd5e1; }
+.mockup-line { white-space: nowrap; }
+.mockup-prompt { color: #10b981; }
+.mockup-cmd { color: #e2e8f0; }
+.mockup-out { color: #94a3b8; }
+.mockup-highlight { color: #60a5fa; }
+.mockup-success { color: #34d399; }
+.mockup-accent { color: #a78bfa; }
 
-/* ── Feature Grid ── */
+/* ── Stats Bar ── */
+.stats-bar {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 2rem; margin-top: 2.5rem;
+  padding: 1.5rem 2rem;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: var(--radius);
+}
+.stat { text-align: center; }
+.stat-value { font-size: 1.6rem; font-weight: 700; color: #f1f5f9; }
+.stat-label { font-size: .8rem; color: #64748b; margin-top: 2px; }
+
+/* ── Features ── */
 .feature-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.25rem;
 }
 .feature-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.5rem;
-  transition: border-color .15s, box-shadow .15s;
+  padding: 1.75rem;
+  transition: all .15s;
 }
-.feature-card:hover { border-color: var(--accent); box-shadow: 0 4px 20px rgba(37,99,235,.08); }
-.feature-card .icon { font-size: 1.6rem; margin-bottom: .5rem; }
-.feature-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: .35rem; }
-.feature-card p { font-size: .88rem; color: var(--muted); line-height: 1.6; }
-
-/* ── Architecture ── */
-.arch-flow {
+.feature-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 24px rgba(37,99,235,.08);
+}
+.feature-card .icon {
+  width: 44px; height: 44px;
+  border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
-  gap: .5rem; flex-wrap: wrap;
-  padding: 1rem 0 .5rem;
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
 }
-.arch-node {
-  background: var(--accent-light);
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  padding: .6rem 1rem;
-  font-size: .85rem;
-  font-weight: 500;
-  white-space: nowrap;
-}
-.arch-arrow { color: var(--muted); font-size: 1.2rem; user-select: none; }
+.feature-card .icon.blue { background: var(--accent-bg); }
+.feature-card .icon.purple { background: #f5f3ff; }
+.feature-card .icon.green { background: #ecfdf5; }
+.feature-card .icon.orange { background: #fff7ed; }
+.feature-card .icon.pink { background: #fdf2f8; }
+.feature-card .icon.cyan { background: #ecfeff; }
+.feature-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: .35rem; }
+.feature-card p { font-size: .88rem; color: var(--text-secondary); line-height: 1.6; }
 
-/* ── Terminal ── */
+/* ── Pipeline ── */
+.pipeline {
+  display: flex; align-items: center; justify-content: center;
+  gap: .75rem; flex-wrap: wrap;
+}
+.pipeline-step {
+  display: flex; flex-direction: column; align-items: center;
+  gap: .35rem;
+}
+.pipeline-icon {
+  width: 64px; height: 64px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: all .2s;
+}
+.pipeline-step:hover .pipeline-icon {
+  border-color: var(--accent);
+  box-shadow: 0 4px 20px rgba(37,99,235,.1);
+  transform: translateY(-2px);
+}
+.pipeline-label { font-size: .8rem; color: var(--text-secondary); font-weight: 500; }
+.pipeline-arrow { color: var(--muted); font-size: 1.4rem; user-select: none; flex-shrink: 0; }
+
+/* ── CLI Demo ── */
 .terminal {
   background: var(--code-bg);
   border-radius: var(--radius);
-  padding: 1.25rem 1.5rem;
-  font-family: "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas, monospace;
-  font-size: .82rem;
-  line-height: 1.65;
+  padding: 1.5rem 1.75rem;
+  font-family: "SF Mono","JetBrains Mono","Fira Code",monospace;
+  font-size: .85rem;
+  line-height: 1.7;
   color: var(--code-text);
   overflow-x: auto;
 }
 .terminal .prompt { color: #10b981; }
-.terminal .cmt { color: #64748b; }
+.terminal .cmt { color: #475569; }
 .terminal .out { color: #94a3b8; }
+.terminal .hl { color: #60a5fa; }
+.terminal .ok { color: #34d399; }
 
-/* ── Steps ── */
-.steps { counter-reset: step; }
-.step {
-  display: flex; gap: 1rem; padding: .75rem 0;
-  counter-increment: step;
+/* ── Extension Demo ── */
+.extension-showcase {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 2rem; align-items: center;
 }
-.step-num {
-  flex-shrink: 0;
-  width: 28px; height: 28px;
+.extension-info h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: .75rem; }
+.extension-info ul { list-style: none; }
+.extension-info li {
+  padding: .5rem 0;
+  font-size: .92rem;
+  color: var(--text-secondary);
+  display: flex; align-items: center; gap: .5rem;
+}
+.extension-info li::before { content: "✓"; color: #10b981; font-weight: 700; }
+.extension-mockup {
+  background: var(--code-bg);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  font-family: "SF Mono","Fira Code",monospace;
+  font-size: .78rem;
+  color: var(--code-text);
+  line-height: 1.65;
+}
+.extension-mockup .sidebar-title { color: #94a3b8; font-size: .82rem; margin-bottom: .75rem; }
+.extension-mockup .node-item { padding: .35rem 0; }
+.extension-mockup .node-tag {
+  display: inline-block;
+  padding: 1px 8px; border-radius: 4px;
+  font-size: .72rem; font-weight: 500;
+  margin-right: 4px;
+}
+.extension-mockup .tag-blue { background: rgba(37,99,235,.2); color: #60a5fa; }
+.extension-mockup .tag-purple { background: rgba(139,92,246,.2); color: #a78bfa; }
+.extension-mockup .tag-green { background: rgba(16,185,129,.2); color: #34d399; }
+.extension-mockup .tag-orange { background: rgba(245,158,11,.2); color: #fbbf24; }
+.extension-mockup .hr { border: none; border-top: 1px solid rgba(255,255,255,.06); margin: .75rem 0; }
+.extension-mockup .similar-title { color: #94a3b8; font-size: .82rem; margin-bottom: .5rem; }
+.extension-mockup .similar-item { padding: .3rem 0; color: #cbd5e1; font-size: .76rem; }
+.extension-mockup .risk-item { color: #fca5a5; padding: .25rem 0; font-size: .76rem; }
+
+/* ── Quick Start ── */
+.quickstart-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+.quickstart-step h3 {
+  font-size: 1rem; font-weight: 600; margin-bottom: .75rem;
+  display: flex; align-items: center; gap: .5rem;
+}
+.quickstart-step h3 .step-num {
+  width: 24px; height: 24px;
   border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  font-size: .8rem;
-  font-weight: 600;
-  display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: #fff;
+  font-size: .78rem; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center;
 }
-.step-content { min-width: 0; }
-.step-content h3 { font-size: .95rem; font-weight: 600; margin-bottom: .15rem; }
-.step-content p { font-size: .88rem; color: var(--muted); }
-
-/* ── CLI demo ── */
-.cli-demo { margin-top: 1.5rem; }
 
 /* ── Footer ── */
 footer {
+  background: var(--code-bg); color: #94a3b8;
+  padding: 3rem 0;
   text-align: center;
-  padding: 2rem 1.5rem;
-  font-size: .82rem;
-  color: var(--muted);
-  border-top: 1px solid var(--border);
+  font-size: .85rem;
 }
+footer .footer-links { display: flex; justify-content: center; gap: 1.5rem; margin-bottom: 1rem; }
+footer .footer-links a { color: #94a3b8; text-decoration: none; transition: color .15s; }
+footer .footer-links a:hover { color: #f1f5f9; }
 
 /* ── Responsive ── */
+@media (max-width: 900px) {
+  .hero .container { grid-template-columns: 1fr; }
+  .hero-content h1 { font-size: 2.2rem; }
+  .hero-mockup { display: none; }
+  .extension-showcase { grid-template-columns: 1fr; }
+  .quickstart-grid { grid-template-columns: 1fr; }
+}
 @media (max-width: 640px) {
-  .hero h1 { font-size: 2rem; }
+  .hero { min-height: auto; padding: 4rem 0; }
+  .hero-content h1 { font-size: 1.8rem; }
+  .section-header h2 { font-size: 1.5rem; }
   .feature-grid { grid-template-columns: 1fr; }
-  .arch-flow { flex-direction: column; }
-  .arch-arrow { transform: rotate(90deg); }
+  .stats-bar { grid-template-columns: 1fr; gap: 1rem; }
+  nav .nav-links a:not(.btn-small) { display: none; }
 }
 </style>
 </head>
 <body>
 
-<header class="hero">
-  <div class="tagline">📦 个人创作工作台 · 开源 · 本地优先</div>
-  <h1>创作者知识库</h1>
-  <p class="sub">收集碎片，发现主题，生成素材。<br>把你的收藏夹变成 AI 辅助的创作引擎。</p>
-  <div class="hero-btns">
-    <a href="#quickstart" class="btn-primary">快速开始 →</a>
-    <a href="https://github.com/paimmme/zhihu2obsidian" class="btn-ghost">GitHub</a>
-    <a href="README.md" class="btn-ghost">文档</a>
-  </div>
-</header>
-
-<section>
+<!-- Nav -->
+<nav>
   <div class="container">
-    <h2 class="section-title">功能</h2>
-    <p class="section-desc">从数据采集到 AI 写作，全链路打通的个人知识工作台</p>
-    <div class="feature-grid">
-      <div class="feature-card">
-        <div class="icon">📡</div>
-        <h3>多平台同步</h3>
-        <p>知乎收藏夹、B站视频（字幕/AI摘要）、小宇宙热门播客 — 一键增量同步。</p>
+    <a href="#" class="logo">Zhihu2Obsidian</a>
+    <div class="nav-links">
+      <a href="#features">功能</a>
+      <a href="#pipeline">架构</a>
+      <a href="#extension">扩展</a>
+      <a href="#quickstart">快速开始</a>
+      <a href="https://github.com/paimmme/zhihu2obsidian" class="btn-small">GitHub →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-content">
+      <h1>
+        把你的收藏夹<br>
+        变成 <span class="gradient-text">创作引擎</span>
+      </h1>
+      <p>
+        自动同步知乎、B站收藏 → 语义向量库 → 主题知识树 → AI 素材包。
+        本地优先，你的数据你做主。为创作者和深度知识工作者设计。
+      </p>
+      <div class="hero-btns">
+        <a href="#quickstart" class="btn-primary">快速开始 →</a>
+        <a href="https://github.com/paimmme/zhihu2obsidian" class="btn-ghost">查看源码</a>
       </div>
-      <div class="feature-card">
-        <div class="icon">🧠</div>
-        <h3>向量知识库</h3>
-        <p>ChromaDB 中文语义搜索，按平台/作者/收藏夹筛选，自动去重与增量构建。</p>
+      <div class="stats-bar">
+        <div class="stat">
+          <div class="stat-value">4700+</div>
+          <div class="stat-label">同步文章</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">15</div>
+          <div class="stat-label">主题簇</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">13</div>
+          <div class="stat-label">功能模块</div>
+        </div>
       </div>
-      <div class="feature-card">
-        <div class="icon">🌲</div>
-        <h3>知识树</h3>
-        <p>从主题簇自动生成层级知识树，支持手动调整、文本节点匹配、覆盖规则。</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">📊</div>
-        <h3>主题聚类</h3>
-        <p>KMeans 自动发现素材中的 15 个主题簇，LLM 生成摘要、观点、选题建议。</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">🃏</div>
-        <h3>素材卡片</h3>
-        <p>LLM 从每篇文章提取核心观点、论据、案例、金句、反方视角和写作角度。</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">✍️</div>
-        <h3>AI 写作</h3>
-        <p>输入问题 → 自动检索知识库+卡片+主题 → 生成结构化素材包 → 可选初稿。</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">🔍</div>
-        <h3>质量检查</h3>
-        <p>逐段相似度分析，标注高相似段落，自动生成改写建议。</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">🔌</div>
-        <h3>浏览器扩展</h3>
-        <p>Chrome MV3 扩展，右键选中文本 → 本地 API 分析 → 侧边栏显示知识树匹配/素材/风险。</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">👤</div>
-        <h3>多账号</h3>
-        <p>支持多知乎账号隔离，--account 参数区分同步、知识库、导出，数据互不干扰。</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">📦</div>
-        <h3>JSONL 导出</h3>
-        <p>三层格式：source_items（去重+质量分）、chunks（分块RAG单元）、corpus（style/evidence）。</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">🌐</div>
-        <h3>Web 仪表盘</h3>
-        <p>Streamlit 5 面板：搜索、知识图谱、词云、主题详情、AI 写作。</p>
-      </div>
-      <div class="feature-card">
-        <div class="icon">🔒</div>
-        <h3>隐私优先</h3>
-        <p>所有数据存储在本地。Cookie 本地管理，API Key 本地配置，来源全程可追溯。</p>
+    </div>
+    <div class="hero-mockup">
+      <div class="mockup-window">
+        <div class="mockup-bar">
+          <div class="mockup-dot"></div>
+          <div class="mockup-dot"></div>
+          <div class="mockup-dot"></div>
+        </div>
+        <div class="mockup-body">
+          <div class="mockup-line"><span class="mockup-prompt">$</span> zhihu2obsidian sync</div>
+          <div class="mockup-line"><span class="mockup-out">📂 收藏夹: 我的收藏 (1880 篇)</span></div>
+          <div class="mockup-line"><span class="mockup-out">📂 收藏夹: obs (43 篇)</span></div>
+          <div class="mockup-line"><span class="mockup-out">━━━━━━━━━━━━━━━━</span></div>
+          <div class="mockup-line"><span class="mockup-out">  ✅ 已同步    37 篇</span></div>
+          <div class="mockup-line"><span class="mockup-out">  ⏭ 已跳过    43 篇</span></div>
+          <div class="mockup-line"><span class="mockup-out">  📷 图片    121 张</span></div>
+          <div class="mockup-line" style="margin-top:8px"><span class="mockup-prompt">$</span> zhihu2obsidian knowledge build</div>
+          <div class="mockup-line"><span class="mockup-out">🧠 向量化 3746 个块 ...</span></div>
+          <div class="mockup-line"><span class="mockup-out">📊 KMeans 聚类: 15 个主题</span></div>
+          <div class="mockup-line"><span class="mockup-out">🌲 知识树: 15 节点已构建</span></div>
+          <div class="mockup-line" style="margin-top:8px"><span class="mockup-prompt">$</span> <span class="mockup-success">zhihu2obsidian serve</span></div>
+          <div class="mockup-line"><span class="mockup-success">🚀 本地 API: http://127.0.0.1:8765</span></div>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<section id="quickstart">
+<!-- Features -->
+<section class="section" id="features">
   <div class="container">
-    <h2 class="section-title">快速开始</h2>
-    <p class="section-desc">5 分钟从零到导出第一篇收藏</p>
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-content">
-          <h3>安装</h3>
-          <p>Python 3.10+，pip install</p>
-        </div>
+    <div class="section-header">
+      <h2>全链路创作工具箱</h2>
+      <p>从数据采集到灵感生成，一次铺设，长期复用</p>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="icon blue">📡</div>
+        <h3>多平台同步</h3>
+        <p>知乎收藏夹、B站视频（字幕/AI摘要）、小宇宙热门 — 增量同步，断点续传，按账号隔离。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon purple">🧠</div>
+        <h3>向量知识库</h3>
+        <p>ChromaDB 中文语义搜索，可筛选平台/作者/收藏夹。自动去重、增量构建，不重复计算。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon green">🌲</div>
+        <h3>知识树</h3>
+        <p>从主题簇自动生成层级知识树。手动 Override 规则，选中文本即可匹配对应节点。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon orange">📊</div>
+        <h3>主题聚类</h3>
+        <p>KMeans 自动发现 15 个主题簇，LLM 为每簇生成摘要、核心观点、反方视角和选题建议。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon pink">🃏</div>
+        <h3>素材卡片</h3>
+        <p>LLM 从每篇内容抽取关键论据、金句、案例。两种质量等级：知乎全量卡，B站轻量卡。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon blue">✍️</div>
+        <h3>AI 写作助手</h3>
+        <p>输入问题 → 检索知识库 + 卡片 + 主题 → 生成结构化素材包 → 可选初稿。支持改写建议。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon cyan">🔍</div>
+        <h3>质量检查</h3>
+        <p>逐段相似度分析，标注高相似段落（>0.45），自动生成改写建议和来源依赖分布。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon purple">🌐</div>
+        <h3>Web 仪表盘</h3>
+        <p>Streamlit 搜索面板、知识图谱与主题网络可视化、词云与机会分、AI 写作与质量检查。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon orange">🔌</div>
+        <h3>浏览器扩展</h3>
+        <p>Chrome MV3，右键选中文本 → 本地 API 分析 → 侧边栏：节匹配、相似素材、写作风险提醒。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon green">👤</div>
+        <h3>多账号</h3>
+        <p>--account 参数隔离知乎多账号。Cookie、状态、知识库、导出各自独立，互不干扰。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon pink">📦</div>
+        <h3>JSONL 导出</h3>
+        <p>source_items（去重+质量分）→ chunks（RAG 分块）→ corpus（style/evidence 分层）。AI 即用。</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon cyan">🔒</div>
+        <h3>隐私优先</h3>
+        <p>所有数据本地存储。Cookie 自行管理，API Key 仅用于 DeepSeek 调用。来源全程可追溯。</p>
       </div>
     </div>
-    <div class="terminal cli-demo">
-      <span class="cmt"># 克隆项目</span><br>
+  </div>
+</section>
+
+<!-- Pipeline -->
+<section class="section" id="pipeline">
+  <div class="container">
+    <div class="section-header">
+      <h2>数据到创作</h2>
+      <p>一次配置，输入收藏，输出灵感</p>
+    </div>
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="pipeline-icon">📡</div>
+        <span class="pipeline-label">采集</span>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">📄</div>
+        <span class="pipeline-label">Markdown</span>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">🧠</div>
+        <span class="pipeline-label">向量库</span>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">📊</div>
+        <span class="pipeline-label">聚类</span>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">🌲</div>
+        <span class="pipeline-label">知识树</span>
+      </div>
+      <span class="pipeline-arrow">→</span>
+      <div class="pipeline-step">
+        <div class="pipeline-icon">✍️</div>
+        <span class="pipeline-label">创作</span>
+      </div>
+    </div>
+    <p style="text-align:center; color: var(--text-secondary); font-size:.9rem; margin-top:2rem;">
+      知乎 / B站 / 小宇宙 → ChromaDB 统一索引 → KMeans + LLM → 分层知识树 → 素材包 / 初稿
+    </p>
+  </div>
+</section>
+
+<!-- Extension -->
+<section class="section" id="extension">
+  <div class="container">
+    <div class="section-header">
+      <h2>浏览器扩展</h2>
+      <p>选中即查，刷知乎顺便养知识库</p>
+    </div>
+    <div class="extension-showcase">
+      <div class="extension-info">
+        <h3>选中文本 · 右键 · 分析</h3>
+        <ul>
+          <li>知识树节点匹配（显示对应主题）</li>
+          <li>相似素材推荐（从你的私人库）</li>
+          <li>写作风险提醒（避免重复内容）</li>
+          <li>侧边栏自动弹出，页面不跳转</li>
+          <li>快捷键 Alt+Shift+Z 随时触发</li>
+          <li>本地 API 直连，数据不出本地</li>
+        </ul>
+        <p style="margin-top:1rem; font-size:.88rem; color: var(--text-secondary);">
+          使用方式：启动 <code style="background:var(--accent-bg);padding:2px 6px;border-radius:4px;font-size:.82rem;">zhihu2obsidian serve</code>，在 chrome://extensions 加载 <code style="background:var(--accent-bg);padding:2px 6px;border-radius:4px;font-size:.82rem;">extension/</code> 目录即可。
+        </p>
+      </div>
+      <div class="extension-mockup">
+        <div class="sidebar-title">🔍 知识库匹配结果</div>
+        <div class="node-item"><span class="node-tag tag-blue">主题</span> AI学习与开发者工具</div>
+        <div class="node-item"><span class="node-tag tag-purple">子主题</span> 从RAG到Agentic RAG</div>
+        <div class="node-item"><span class="node-tag tag-green">子主题</span> AI编程助手实践</div>
+        <hr class="hr">
+        <div class="similar-title">📄 相似素材 (5 条)</div>
+        <div class="similar-item">• Ai编程Agent工具对比与选型实践 (score 0.63)</div>
+        <div class="similar-item">• RAG系统设计与实现 (score 0.49)</div>
+        <div class="similar-item">• Cursor IDE 深度体验 (score 0.45)</div>
+        <hr class="hr">
+        <div class="similar-title">⚠️ 写作风险</div>
+        <div class="risk-item">• 第2段 与「RAG系统设计与实现」高度相似 (0.52)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Quick Start -->
+<section class="section" id="quickstart">
+  <div class="container">
+    <div class="section-header">
+      <h2>5 分钟上手</h2>
+      <p>Python 3.10+，一条命令安装</p>
+    </div>
+    <div class="terminal" style="margin-bottom:2.5rem">
+      <span class="cmt"># 安装</span><br>
       <span class="prompt">$</span> git clone git@github.com:paimmme/zhihu2obsidian.git<br>
       <span class="prompt">$</span> cd zhihu2obsidian/cli<br>
       <span class="prompt">$</span> python -m venv .venv && source .venv/bin/activate<br>
       <span class="prompt">$</span> pip install -e ".[all]"<br><br>
       <span class="cmt"># 初始化 + 导入 Cookie（从浏览器 DevTools 复制 z_c0 和 d_c0）</span><br>
       <span class="prompt">$</span> zhihu2obsidian config init<br>
-      <span class="prompt">$</span> zhihu2obsidian auth login<br>
-    </div>
-    <div class="steps" style="margin-top:1rem">
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-content">
-          <h3>同步收藏夹</h3>
-          <p>首次同步建议加 --limit 3 测试</p>
-        </div>
-      </div>
-    </div>
-    <div class="terminal cli-demo">
-      <span class="prompt">$</span> zhihu2obsidian list<br>
-      <span class="out">📂 共 2 个收藏夹<br>
-&nbsp;&nbsp;1. 我的收藏 (994375688) — 12 篇<br>
-&nbsp;&nbsp;2. tech (1003429158) — 9 篇</span><br><br>
+      <span class="prompt">$</span> zhihu2obsidian auth login<br><br>
+      <span class="cmt"># 同步 → 构建知识库 → 启动</span><br>
       <span class="prompt">$</span> zhihu2obsidian sync<br>
-      <span class="out">✅ 同步完成: 21 篇 / 35 张图片</span><br>
+      <span class="prompt">$</span> zhihu2obsidian knowledge topics build<br>
+      <span class="prompt">$</span> zhihu2obsidian knowledge tree build<br>
+      <span class="prompt">$</span> zhihu2obsidian serve<br>
+      <span class="out">🚀 本地 API: http://127.0.0.1:8765</span><br>
+      <span class="cmt"># 另一个终端打开 Streamlit 仪表盘</span><br>
+      <span class="prompt">$</span> streamlit run web/app.py<br>
     </div>
-    <div class="steps" style="margin-top:1rem">
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-content">
-          <h3>构建知识库 + 启动仪表盘</h3>
+    <div class="quickstart-grid">
+      <div class="quickstart-step">
+        <h3><span class="step-num">1</span> 日常同步</h3>
+        <div class="terminal" style="font-size:.82rem; padding:1rem 1.25rem;">
+          <span class="cmt"># 增量同步所有平台</span><br>
+          <span class="prompt">$</span> zhihu2obsidian sync<br>
+          <span class="prompt">$</span> zhihu2obsidian bilibili sync<br><br>
+          <span class="cmt"># 月度一键全量</span><br>
+          <span class="prompt">$</span> zhihu2obsidian monthly
+        </div>
+      </div>
+      <div class="quickstart-step">
+        <h3><span class="step-num">2</span> 搜索与写作</h3>
+        <div class="terminal" style="font-size:.82rem; padding:1rem 1.25rem;">
+          <span class="cmt"># 语义搜索（支持平台/作者/收藏夹筛选）</span><br>
+          <span class="prompt">$</span> zhihu2obsidian search "AI 编程" --platform bilibili<br><br>
+          <span class="cmt"># AI 写作（需 DeepSeek Key）</span><br>
+          <span class="prompt">$</span> zhihu2obsidian write "古法编程" --package --draft
         </div>
       </div>
     </div>
-    <div class="terminal cli-demo">
-      <span class="prompt">$</span> zhihu2obsidian knowledge build<br>
-      <span class="out">🧠 向量化... 存储 398 个向量<br>
-🔗 知识图谱...<br>
-☁️ 词云...</span><br><br>
-      <span class="prompt">$</span> streamlit run web/app.py<br>
-      <span class="out">  You can now view your Streamlit app at:<br>
-  http://localhost:8501</span><br>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="container">
-    <h2 class="section-title">日常使用</h2>
-    <p class="section-desc">一次 sync，随时检索</p>
-      <div class="terminal cli-demo">
-        <span class="cmt"># 搜索素材</span><br>
-        <span class="prompt">$</span> zhihu2obsidian search "AI 编程工具" --platform zhihu<br>
-        <span class="out">🔎 搜索结果 (去重):<br>
-&nbsp;&nbsp;#1  AI编程Agent工具对比与选型实践 (score: 0.630)<br>
-&nbsp;&nbsp;#2  RAG 系统设计与实现 (score: 0.487)</span><br><br>
-        <span class="cmt"># 素材卡片抽取（一次抽取，后续增量）</span><br>
-        <span class="prompt">$</span> zhihu2obsidian knowledge cards build<br>
-        <span class="out">📄 已抽取 22 张素材卡片</span><br><br>
-        <span class="cmt"># 主题聚类 + 知识树</span><br>
-        <span class="prompt">$</span> zhihu2obsidian knowledge topics build<br>
-        <span class="out">📂 共 15 个主题簇</span><br>
-        <span class="prompt">$</span> zhihu2obsidian knowledge tree build<br>
-        <span class="out">🌲 知识树已构建，15 节点</span><br><br>
-        <span class="cmt"># 启动本地 API + 浏览器扩展</span><br>
-        <span class="prompt">$</span> zhihu2obsidian serve<br>
-        <span class="out">🚀 本地 API: http://127.0.0.1:8765</span><br><br>
-        <span class="cmt"># AI 写作（需 DeepSeek API Key）</span><br>
-        <span class="prompt">$</span> zhihu2obsidian write "古法编程值不值得坚持" --package --draft --check<br>
-        <span class="out">✍️ 生成完成。相似度检查: ✅ 原创度良好</span><br><br>
-        <span class="cmt"># 月度一键全量</span><br>
-        <span class="prompt">$</span> zhihu2obsidian monthly<br>
-        <span class="cmt"># 多账号</span><br>
-        <span class="prompt">$</span> zhihu2obsidian sync --account personal<br>
-        <span class="prompt">$</span> zhihu2obsidian export --no-cards --account personal<br>
-      </div>
-  </div>
-</section>
-
-<section>
-  <div class="container">
-    <h2 class="section-title">架构</h2>
-    <p class="section-desc">从数据采集到 AI 生成的完整管线</p>
-    <div class="arch-flow">
-      <span class="arch-node">📡 知乎 API</span>
-      <span class="arch-arrow">→</span>
-      <span class="arch-node">📄 Markdown</span>
-      <span class="arch-arrow">→</span>
-      <span class="arch-node">🧠 ChromaDB</span>
-      <span class="arch-arrow">→</span>
-      <span class="arch-node">📊 聚类 + 卡片</span>
-      <span class="arch-arrow">→</span>
-      <span class="arch-node">🌲 知识树</span>
-    </div>
-    <div class="arch-flow" style="margin-top:.5rem">
-      <span class="arch-node">📺 B站 API</span>
-      <span class="arch-arrow">→</span>
-      <span class="arch-node">🎬 字幕/AI摘要</span>
-      <span class="arch-arrow">→</span>
-      <span class="arch-node" colspan="4">同一 ChromaDB 向量索引</span>
-    </div>
-    <div class="arch-flow" style="margin-top:.5rem">
-      <span class="arch-node">🔌 浏览器扩展</span>
-      <span class="arch-arrow">←</span>
-      <span class="arch-node">🌐 本地 API</span>
-      <span class="arch-arrow">←</span>
-      <span class="arch-node" colspan="3">知识树 + 搜索 + 写作</span>
-    </div>
-    <p style="text-align:center; color: var(--muted); font-size:.88rem; margin-top:1.5rem;">
-      Streamlit 仪表盘提供搜索 · 知识图谱 · 词云 · 主题 · AI 写作五面板交互
-    </p>
   </div>
 </section>
 
 <footer>
-  <p>创作者知识库 · MIT License · 数据本地，创作自由</p>
+  <div class="footer-links">
+    <a href="https://github.com/paimmme/zhihu2obsidian">GitHub</a>
+    <a href="https://github.com/paimmme/zhihu2obsidian-data">📁 私人数据仓库</a>
+    <a href="README.md">文档</a>
+  </div>
+  <p>MIT License · 本地优先 · 开源 · 创作自由</p>
 </footer>
 
 </body>
