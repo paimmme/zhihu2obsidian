@@ -101,6 +101,7 @@ def main() -> None:
     kn_tree_sub.add_parser("list", help="列出知识树节点")
     kn_tree_view = kn_tree_sub.add_parser("view", help="查看知识树节点")
     kn_tree_view.add_argument("id", help="节点 ID (eg. node_topic_001)")
+    kn_tree_sub.add_parser("graph", help="生成交互式主题图谱")
 
     # search
     search_p = sub.add_parser("search", help="语义搜索知识库")
@@ -110,6 +111,52 @@ def main() -> None:
     search_p.add_argument("--collection", help="按收藏夹筛选")
     search_p.add_argument("--platform", help="按平台筛选 (zhihu/bilibili/xiaoyuzhou)")
     search_p.add_argument("--flat", action="store_true", help="原始结果 (不去重)")
+
+    # question
+    q_p = sub.add_parser("question", help="写作策略分析与格式推荐")
+    q_sub = q_p.add_subparsers(dest="question_cmd")
+    q_analyze = q_sub.add_parser("analyze", help="分析问题类型+格式推荐")
+    q_analyze.add_argument("question", help="问题标题")
+    q_analyze.add_argument("--json", action="store_true", help="输出 JSON")
+    q_analyze.add_argument("--top-n", type=int, default=3, help="候选类型数")
+    q_analyze.add_argument("--no-knowledge", action="store_true", help="不检索知识库")
+    q_analyze.add_argument("--personal", type=str, default="", help="用户个人观点")
+
+    # write-smart
+    ws_p = sub.add_parser("write-smart", help="格式感知写作策略（不含完整草稿。需生成完整草稿请用 write-draft）")
+    ws_p.add_argument("question", help="问题标题")
+    ws_p.add_argument("--model", default="deepseek-v4-flash", help="DeepSeek 模型名")
+    ws_p.add_argument("--temperature", type=float, default=0.5, help="生成温度（策略用较低温）")
+    ws_p.add_argument("--style", default="", help="偏好文风 ID")
+    ws_p.add_argument("--hook", default="", help="偏好钩子 ID")
+    ws_p.add_argument("--platform", default="zhihu", choices=["zhihu", "bilibili", "xiaoyuzhou"], help="目标平台")
+    ws_p.add_argument("--no-context", action="store_true", help="不检索知识库")
+    ws_p.add_argument("--outline-only", action="store_true", help="只输出大纲")
+    ws_p.add_argument("--json", action="store_true", help="输出 JSON")
+
+    # write-draft
+    wd_p = sub.add_parser("write-draft", help="生成完整写作草稿（基于策略，含大纲+素材+草稿）")
+    wd_p.add_argument("question", help="问题标题")
+    wd_p.add_argument("--model", default="deepseek-v4-flash", help="DeepSeek 模型名")
+    wd_p.add_argument("--temperature", type=float, default=0.6, help="生成温度（草稿用较高温 0.6）")
+    wd_p.add_argument("--style", default="", help="偏好文风 ID")
+    wd_p.add_argument("--hook", default="", help="偏好钩子 ID")
+    wd_p.add_argument("--platform", default="zhihu", choices=["zhihu", "bilibili", "xiaoyuzhou"], help="目标平台")
+    wd_p.add_argument("--no-context", action="store_true", help="不检索知识库")
+    wd_p.add_argument("--json", action="store_true", help="输出 JSON（含 draft + strategy 字段）")
+
+    # image
+    img_p = sub.add_parser("image", help="配图搜索与建议")
+    img_sub = img_p.add_subparsers(dest="image_cmd")
+    img_search = img_sub.add_parser("search", help="搜索配图")
+    img_search.add_argument("query", help="搜索关键词")
+    img_search.add_argument("--source", default="auto", choices=["auto", "wikipedia", "unsplash"],
+                            help="图片来源（auto 自动选择）")
+    img_search.add_argument("--json", action="store_true", help="输出 JSON")
+    img_suggest = img_sub.add_parser("suggest", help="为章节建议配图")
+    img_suggest.add_argument("section", help="章节标题")
+    img_suggest.add_argument("--key-points", "-k", nargs="+", default=[], help="要点列表")
+    img_suggest.add_argument("--json", action="store_true", help="输出 JSON")
 
     # write
     write_p = sub.add_parser("write", help="AI 写作助手（生成知乎回答）")
@@ -130,6 +177,14 @@ def main() -> None:
     check_p.add_argument("--text", type=str, help="直接传文本检查")
     check_p.add_argument("--rewrite", action="store_true", help="为高相似段落生成改写建议")
     check_p.add_argument("--raw", action="store_true", help="只输出报告正文")
+
+    # writing-guide
+    wg_p = sub.add_parser("writing-guide", help="写作指南查询（平台信息/格式推荐）")
+    wg_sub = wg_p.add_subparsers(dest="wg_cmd", required=True)
+    wg_platform = wg_sub.add_parser("platform", help="查看平台信息")
+    wg_platform.add_argument("platform_id", nargs="?", default="zhihu",
+                              choices=["list", "zhihu", "bilibili", "xiaoyuzhou"],
+                              help="平台 ID 或 list（列出所有）")
 
     # analyze
     analyze_p = sub.add_parser("analyze", help="分析选中文本并匹配知识树")
@@ -202,6 +257,16 @@ def main() -> None:
         _handle_write(config, args)
     elif args.command == "check":
         _handle_check(config, args)
+    elif args.command == "question":
+        _handle_question(config, args)
+    elif args.command == "write-smart":
+        _handle_write_smart(config, args)
+    elif args.command == "write-draft":
+        _handle_write_draft(config, args)
+    elif args.command == "image":
+        _handle_image(config, args)
+    elif args.command == "writing-guide":
+        _handle_writing_guide(config, args)
     elif args.command == "analyze":
         _handle_analyze(config, args)
     elif args.command == "serve":
@@ -244,6 +309,8 @@ def _handle_config(config: Config, args) -> None:
             config.deepseek_api_key = args.value
         elif args.key == "knowledge_dir":
             config.knowledge_dir = args.value
+        elif args.key == "unsplash_api_key":
+            config.unsplash_api_key = args.value
         else:
             print(f"❌ 未知配置 key: {args.key}")
             sys.exit(1)
@@ -257,6 +324,7 @@ def _handle_config(config: Config, args) -> None:
         print(f"image_concurrency: {config.image_concurrency}")
         print(f"collections:      {config.collections or '全部'}")
         print(f"deepseek_api_key: {'已设置' if config.deepseek_api_key else '未设置'}")
+        print(f"unsplash_api_key: {'已设置' if config.unsplash_api_key else '未设置（可选）'}")
         print(f"knowledge_dir:    {config.knowledge_dir or '(默认: 使用 vault 内 .knowledge 目录)'}")
 
 
@@ -643,6 +711,406 @@ def _handle_xiaoyuzhou(config: Config, args) -> None:
         )
         fpath.write_text(fm + outline, encoding="utf-8")
         print(f"💾 已保存: {fpath}")
+
+
+def _handle_question(config: Config, args) -> None:
+    """分析问题类型 + 格式推荐."""
+    import json
+
+    if args.question_cmd == "analyze":
+        from .agent.classifier import QuestionClassifier
+        from .agent.format_selector import FormatSelector
+
+        classifier = QuestionClassifier()
+        selector = FormatSelector(config.knowledge_path if config.knowledge_path.exists() else None)
+
+        # 分类
+        candidates = classifier.classify(args.question, top_n=args.top_n)
+        best = classifier.classify_best(args.question)
+
+        if not candidates:
+            print("❌ 无法分析该问题类型")
+            return
+
+        # 格式推荐
+        format_rec = {}
+        if best:
+            format_rec = selector.recommend(best["type"])
+
+        # 相似素材（可选）
+        similar = []
+        if not args.no_knowledge and config.knowledge_path.exists():
+            try:
+                from .agent.retriever import Retriever
+                retriever = Retriever(config.knowledge_path)
+                results = retriever.search_with_context(args.question, n_results=3)
+                for group in results:
+                    for chunk in group.get("chunks", []):
+                        similar.append({
+                            "title": chunk.get("title", ""),
+                            "author": chunk.get("author", ""),
+                            "platform": chunk.get("platform", ""),
+                            "text_preview": chunk["text"][:120],
+                        })
+            except Exception:
+                pass
+
+        result = {
+            "question": args.question,
+            "classification": candidates,
+            "best_type": best,
+            "format_recommendation": format_rec,
+            "similar_sources": similar[:5],
+        }
+
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return
+
+        # ── 可读输出 ──
+        print(f"\n📌 问题: {args.question}\n")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("🔎 类型分析:")
+        for cand in candidates:
+            marker = "★" if best and cand["type"] == best["type"] else " "
+            print(f"  {marker} {cand['type_name']} (置信度: {cand['confidence']:.0%})")
+            print(f"    基调: {cand['estimated_tone']}")
+            print(f"    预估长度: {cand['estimated_length']}")
+            if cand.get("avoid"):
+                print(f"    禁忌: {'; '.join(cand['avoid'])}")
+            print()
+
+        if format_rec:
+            print("📐 格式推荐:")
+            print(f"  {format_rec.get('description', '')}\n")
+            hook = format_rec.get("hook", {})
+            if hook.get("recommended"):
+                for h in hook["recommended"]:
+                    print(f"  开头钩子: {h['name']} ({h['risk_level']}风险)")
+                    print(f"    结构: {h['structure']}")
+                    print(f"    理由: {h['reason']}")
+                    print()
+            style = format_rec.get("style", {})
+            if style.get("recommended"):
+                print(f"  文风: {' + '.join(s['name'] for s in style['recommended'])}")
+                if style.get("blend_suggestion"):
+                    print(f"    搭配: {style['blend_suggestion']}")
+                print()
+            struct_rec = format_rec.get("structure", {})
+            if struct_rec.get("recommended"):
+                st = struct_rec["recommended"]
+                print(f"  结构: {st['name']}")
+                print(f"    理由: {st.get('reason', '')}")
+                print()
+            arc_rec = format_rec.get("emotional_arc", {})
+            if arc_rec.get("recommended"):
+                arc = arc_rec["recommended"]
+                print(f"  情绪曲线: {arc['name']}")
+                for ph in arc.get("phases", []):
+                    print(f"    · {ph.get('phase', '')}（{ph.get('emotion', '')}）")
+                print(f"  提示: {arc.get('note', '')}")
+                print()
+            tech_rec = format_rec.get("techniques", {})
+            if tech_rec.get("recommended"):
+                print(f"  推荐技巧:")
+                for t in tech_rec["recommended"]:
+                    risk_mark = {"low": "✅", "medium": "⚠", "high": "🔴"}
+                    print(f"    {risk_mark.get(t['risk_level'], '')} {t['name']}: {t['description']}")
+                    if t.get("safety_instruction"):
+                        print(f"      安全: {t['safety_instruction'][:80]}...")
+                print()
+
+        if similar:
+            print("📚 知识库相似素材:")
+            for s in similar[:3]:
+                print(f"  [{s.get('platform', '')}] {s.get('title', '')} — {s.get('author', '')}")
+                print(f"    {s['text_preview']}...")
+                print()
+
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("💡 提示: 使用 zhihu2obsidian write-smart \"问题\" 获取完整写作策略")
+
+
+def _handle_write_draft(config: Config, args) -> None:
+    """生成完整草稿（策略 + 完整回答）. """
+    import json
+
+    if not config.deepseek_api_key:
+        print("❌ DeepSeek API Key 未设置")
+        sys.exit(1)
+
+    from .agent.retriever import Retriever
+    from .agent.smart_writer import SmartWriter
+
+    # Retriever
+    retriever = None
+    if not args.no_context and config.knowledge_path.exists():
+        try:
+            retriever = Retriever(config.knowledge_path)
+        except Exception:
+            pass
+
+    writer = SmartWriter(
+        api_key=config.deepseek_api_key,
+        model=args.model,
+        knowledge_dir=str(config.knowledge_path) if config.knowledge_path.exists() else None,
+        retriever=retriever,
+        platform=args.platform,
+    )
+
+    if config.unsplash_api_key:
+        writer.set_image_api_key(config.unsplash_api_key)
+
+    print(f"📌 问题: {args.question}\n")
+    print(f"📌 平台: {args.platform}")
+    print("✍️  生成策略 + 完整草稿（需要 60-120s）...")
+
+    try:
+        result = writer.generate_draft(
+            question=args.question,
+            temperature=args.temperature,
+            style_preference=args.style,
+            hook_preference=args.hook,
+            with_context=not args.no_context,
+            platform=args.platform,
+        )
+    except Exception as e:
+        print(f"❌ 生成失败: {e}")
+        return
+
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
+
+    # ── 可读输出 ──
+    print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    strategy = result.get("strategy", {})
+    outline = strategy.get("outline", [])
+    if outline:
+        print("📋 策略大纲:")
+        for i, sec in enumerate(outline, 1):
+            print(f"  {i}. {sec.get('section', '')}")
+            for kp in sec.get("key_points", []):
+                print(f"     · {kp}")
+            if sec.get("technique_hint"):
+                print(f"     🛠 {sec['technique_hint']}")
+            print()
+
+    draft = result.get("draft", "")
+    print("━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print("✍️  草稿:\n")
+    print(draft)
+
+    sections = result.get("sections", [])
+    if sections:
+        print(f"\n📑 章节数: {len(sections)}")
+
+
+def _handle_image(config: Config, args) -> None:
+    """配图搜索与建议."""
+    import json
+
+    from .agent.image_searcher import ImageSearcher
+
+    searcher = ImageSearcher(
+        unsplash_api_key=config.unsplash_api_key or "",
+    )
+
+    if args.image_cmd == "search":
+        results = searcher.search_with_sources(args.query)
+
+        if args.json:
+            print(json.dumps(results, ensure_ascii=False, indent=2))
+            return
+
+        images = results.get("images", [])
+        if not images:
+            print(f"📷 未找到 '{args.query}' 的配图")
+            return
+
+        print(f"📷 搜索: {args.query}")
+        print(f"来源: {results['source']}")
+        print()
+        for img in images:
+            url = img.get("url", "")
+            desc = img.get("description", "")
+            source = img.get("source", "?")
+            if url:
+                print(f"  · {desc}")
+                print(f"    {url}")
+                if img.get("author"):
+                    print(f"    摄影: {img['author']}")
+                print(f"    [来源: {source}]")
+            elif img.get("suggest_marker"):
+                print(f"  · 建议配图: {img['suggest_marker']}")
+            print()
+
+    elif args.image_cmd == "suggest":
+        suggestion = searcher.suggest_for_section(args.section, args.key_points)
+
+        if args.json:
+            print(json.dumps(suggestion, ensure_ascii=False, indent=2))
+            return
+
+        print(f"📷 章节: {args.section}")
+        print(f"配图类型: {suggestion['image_type_name']}")
+        print(f"搜索关键词: {suggestion['search_query']}")
+        print()
+
+        images = suggestion.get("images", [])
+        if images:
+            print(f"找到 {len(images)} 张图:")
+            for img in images:
+                print(f"  · {img.get('description', '')}")
+                print(f"    {img.get('url', '')}")
+                print()
+        else:
+            print(f"建议: {suggestion.get('suggest_marker', '')}")
+            print()
+
+
+def _handle_write_smart(config: Config, args) -> None:
+    """格式感知写作策略生成."""
+    import json
+
+    if not config.deepseek_api_key:
+        print("❌ DeepSeek API Key 未设置")
+        sys.exit(1)
+
+    from .agent.retriever import Retriever
+    from .agent.smart_writer import SmartWriter
+
+    # Retriever
+    retriever = None
+    if not args.no_context and config.knowledge_path.exists():
+        try:
+            retriever = Retriever(config.knowledge_path)
+        except Exception:
+            pass
+
+    writer = SmartWriter(
+        api_key=config.deepseek_api_key,
+        model=args.model,
+        knowledge_dir=str(config.knowledge_path) if config.knowledge_path.exists() else None,
+        retriever=retriever,
+        platform=args.platform,
+    )
+
+    # 可选 Unsplash
+    if config.unsplash_api_key:
+        writer.set_image_api_key(config.unsplash_api_key)
+
+    print(f"📌 问题: {args.question}\n")
+    print(f"📌 平台: {args.platform}")
+    print("✍️  生成写作策略...")
+
+    output_mode = "outline" if args.outline_only else "full"
+
+    try:
+        result = writer.generate(
+            question=args.question,
+            temperature=args.temperature,
+            style_preference=args.style,
+            hook_preference=args.hook,
+            with_context=not args.no_context,
+            output_mode=output_mode,
+            platform=args.platform,
+        )
+    except Exception as e:
+        print(f"❌ 生成失败: {e}")
+        return
+
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
+
+    # ── 可读输出 ──
+    print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    analysis = result.get("question_analysis", {})
+    if analysis:
+        type_name = analysis.get("type_name", "未知")
+        tone = analysis.get("estimated_tone", "")
+        print(f"🔎 问题分类: {type_name} | 基调: {tone}")
+
+    format_rec = result.get("format_recommendation", {})
+    if format_rec:
+        print(f"📐 格式策略:")
+        print(f"  {format_rec.get('description', '')}")
+
+    # Outline
+    outline = result.get("outline", [])
+    if outline:
+        print(f"\n📋 策略大纲:")
+        for i, sec in enumerate(outline, 1):
+            print(f"  {i}. {sec.get('section', '')}")
+            for kp in sec.get("key_points", []):
+                print(f"     · {kp}")
+            if sec.get("technique_hint"):
+                print(f"     🛠 {sec['technique_hint']}")
+            print()
+
+    # Material package
+    material = result.get("material_package", {})
+    if material:
+        core = material.get("core_viewpoints", [])
+        if core:
+            print(f"💡 核心观点 ({len(core)}):")
+            for v in core:
+                print(f"  · {v}")
+            print()
+        chain = material.get("argument_chain", [])
+        if chain:
+            print(f"🔗 论据链 ({len(chain)}):")
+            for a in chain:
+                src = a.get("source_title", "")
+                print(f"  · {a.get('point', '')}")
+                print(f"    证据: {a.get('evidence', '')[:80]}...")
+                if src:
+                    print(f"    来源: {src}")
+                print()
+        cases = material.get("case_stories", [])
+        if cases:
+            print(f"📖 案例 ({len(cases)}):")
+            for c in cases:
+                print(f"  · {c.get('story', '')[:80]}...")
+                print(f"    用法: {c.get('usage', '')}")
+                print()
+        quotes = material.get("key_quotes", [])
+        if quotes:
+            print(f"💬 金句参考:")
+            for q in quotes:
+                print(f"  · 「{q.get('quote', '')}」— {q.get('source', '')}")
+
+    # Image suggestions
+    img_suggestions = result.get("image_suggestions", [])
+    if img_suggestions:
+        print(f"\n📷 配图建议:")
+        for sec_img in img_suggestions:
+            sec_name = sec_img.get("section", "")
+            img_type = sec_img.get("image_type_name", "")
+            print(f"  {sec_name} [{img_type}]")
+            images = sec_img.get("images", [])
+            if images:
+                for img in images[:2]:
+                    url = img.get("url", "")
+                    desc = img.get("description", "")
+                    source = img.get("source", "")
+                    if source == "suggest":
+                        print(f"    建议: {img.get('suggest_marker', '')}")
+                    else:
+                        print(f"    · {desc}")
+                        print(f"      {url}")
+            else:
+                print(f"    建议: {sec_img.get('suggest_marker', '')}")
+            print()
+
+    # Risks
+    risks = result.get("risks", [])
+    if risks:
+        print(f"\n⚠ 风险提示:")
+        for r in risks:
+            level_mark = {"low": "ℹ", "medium": "⚠", "high": "🔴"}
+            print(f"  {level_mark.get(r.get('level', 'low'), '')} {r.get('message', '')}")
 
 
 def _handle_write(config: Config, args) -> None:
@@ -1088,8 +1556,19 @@ def _handle_knowledge_tree(config: Config, args) -> None:
             for rc in node.get("representative_chunks", [])[:5]:
                 print(f"  [{rc.get('platform', '?')}] {rc.get('title', '')} — {rc.get('author', '')}")
         print()
+    elif cmd == "graph":
+        from .knowledge.graph import save_topic_graph_html
+        tree_path = config.knowledge_path / "tree" / "index.json"
+        if not tree_path.exists():
+            print("❌ 知识树不存在。请先运行: zhihu2obsidian knowledge tree build")
+            return
+        output_path = config.knowledge_path / "topic-graph.html"
+        save_topic_graph_html(tree_path, output_path)
+        print(f"🌐 交互式主题图谱已生成: {output_path}")
+        print(f"   主题数: {len(builder.list_nodes())}")
+        print(f"   使用浏览器打开查看")
     else:
-        print("用法: zhihu2obsidian knowledge tree {build|list|view}")
+        print("用法: zhihu2obsidian knowledge tree {build|list|view|graph}")
 
 
 def _handle_check(config: Config, args) -> None:
@@ -1141,6 +1620,72 @@ def _handle_check(config: Config, args) -> None:
         print(output)
     else:
         print(output)
+
+
+def _handle_writing_guide(config: Config, args) -> None:
+    """写作指南查询."""
+    from .writing_guide import WritingGuide, get_by_id
+
+    guide = WritingGuide(
+        config.knowledge_path if config.knowledge_path.exists() else None
+    )
+
+    if args.wg_cmd == "platform":
+        pid = args.platform_id
+        if pid == "list":
+            platforms = guide.get_platforms()
+            print(f"📋 共 {len(platforms)} 个平台:\n")
+            for p in platforms.values():
+                print(f"  {p['id']}: {p['name']} ({p['type']})")
+                print(f"    受众: {p.get('audience', '')}")
+                print(f"    默认风格: {p.get('style_default', '')}")
+                print(f"    推荐字数: {p.get('length_default', '')}")
+                print()
+            return
+
+        pf = guide.get_platform(pid)
+        if not pf:
+            print(f"❌ 未知平台: {pid}")
+            return
+
+        print(f"\n📌 {pf['name']} 平台画像")
+        print(f"{'=' * 40}")
+        print(f"  类型: {pf.get('type', '')}")
+        print(f"  受众: {pf.get('audience', '')}")
+        print(f"  默认调性: {pf.get('tone_default', '')}")
+        print(f"  默认文风: {pf.get('style_default', '')}")
+        print(f"  推荐字数: {pf.get('length_default', '')}")
+        print(f"  段落节奏: {pf.get('paragraph_flow', '')}")
+        print(f"  平台礼仪: {pf.get('etiquette', '')}")
+        if pf.get("taboos"):
+            print(f"  禁忌: {'; '.join(pf['taboos'])}")
+        print(f"\n  推荐结构:")
+        for sid in pf.get("structure_defaults", []):
+            struct = get_by_id(guide.data.get("structures", []), sid)
+            if struct:
+                print(f"    · {struct['name']}")
+        print(f"\n  推荐开头:")
+        for hid in pf.get("hooks_preferred", []):
+            hk = get_by_id(guide.data.get("hooks", []), hid)
+            if hk:
+                print(f"    · {hk['name']}")
+        print(f"\n  避免开头:")
+        for hid in pf.get("hooks_avoid", []):
+            hk = get_by_id(guide.data.get("hooks", []), hid)
+            if hk:
+                print(f"    · {hk['name']}")
+        print(f"\n  配图风格: {pf.get('image_style', '')}")
+        print(f"  举例问题: {pf.get('example_question', '')}")
+
+        # 显示该平台支持的提问类型
+        qtypes = guide.filter_by_platform(
+            guide.data.get("question_types", []), pid
+        )
+        if qtypes:
+            print(f"\n  支持的问题类型 ({len(qtypes)}):")
+            for qt in qtypes:
+                print(f"    · {qt['name']} ({qt['id']})")
+        print()
 
 
 def _handle_analyze(config: Config, args) -> None:

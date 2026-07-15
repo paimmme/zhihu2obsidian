@@ -153,7 +153,7 @@ with st.sidebar:
     st.markdown("---")
     page = st.radio(
         "导航",
-        options=["搜索", "知识图谱", "词云", "主题", "AI 写作"],
+        options=["搜索", "知识图谱", "词云", "主题", "AI 写作", "✏️ 写作指南"],
         index=0,
         label_visibility="collapsed",
     )
@@ -314,12 +314,19 @@ if page == "知识图谱":
         col_graph, col_info = st.columns([3, 2])
 
         with col_graph:
+            # 优先使用交互式主题图谱
+            topic_graph_file = knowledge_path / "topic-graph.html"
             graph_file = knowledge_path / "graph.html"
-            if not graph_file.exists():
-                st.warning("⚠ 知识图谱未生成。请运行 `zhihu2obsidian knowledge build`")
-            else:
+
+            if topic_graph_file.exists():
+                html_content = topic_graph_file.read_text(encoding="utf-8")
+                st.html(html_content)
+                st.caption("💡 点击节点查看详情 · 搜索框过滤主题 ·「高亮关联」聚焦网络")
+            elif graph_file.exists():
                 html_content = graph_file.read_text(encoding="utf-8")
                 st.html(html_content)
+            else:
+                st.warning("⚠ 图谱未生成。请运行 `zhihu2obsidian knowledge build` 或 `zhihu2obsidian knowledge tree graph`")
 
             # Stats
             assert retriever is not None
@@ -333,6 +340,13 @@ if page == "知识图谱":
                 if selected_topic:
                     matching = next((t for t in topics_index if t["id"] == selected_topic), None)
                     st.metric("📂 素材", matching["content_count"] if matching else 0)
+                    # 显示生成新图谱的快捷操作
+                    if st.button("🔄 生成主题图谱", key="gen_topic_graph", help="基于知识树生成交互式主题图谱"):
+                        from zhihu2obsidian.knowledge.graph import save_topic_graph_html
+                        tree_path = knowledge_path / "tree" / "index.json"
+                        if tree_path.exists():
+                            save_topic_graph_html(tree_path, topic_graph_file)
+                            st.rerun()
                 else:
                     st.metric("📂 存储", str(knowledge_path))
 
@@ -872,6 +886,335 @@ if page == "AI 写作":
 
         elif generate:
             st.warning("请先输入问题")
+
+# ================================================================
+# 页面: ✏️ 写作指南
+# ================================================================
+if page == "✏️ 写作指南":
+    st.markdown('<div class="main-header">✏️ 写作指南</div>', unsafe_allow_html=True)
+    st.markdown("浏览与编辑写作格式模板，预览格式推荐")
+
+    import yaml
+    from copy import deepcopy
+    from zhihu2obsidian.writing_guide import load_guide
+    from zhihu2obsidian.agent.format_selector import FormatSelector
+
+    ALL_PLATFORMS = ["zhihu", "bilibili", "xiaoyuzhou"]
+
+    # 加载指南（模板 + 用户覆盖合并）
+    guide_data = load_guide(knowledge_path)
+    all_qt_ids = [qt["id"] for qt in guide_data.get("question_types", [])]
+
+    # ── Save helper ─────────────────────────────────────────────
+    def _save_override(category_key: str, entry_id: str, updated: dict) -> None:
+        odir = knowledge_path / "writing-guide"
+        opath = odir / "overrides.yaml"
+        odir.mkdir(parents=True, exist_ok=True)
+        if opath.exists():
+            with open(opath, encoding="utf-8") as f:
+                overrides = yaml.safe_load(f) or {}
+        else:
+            overrides = {}
+        section = overrides.get(category_key, [])
+        for i, e in enumerate(section):
+            if e.get("id") == entry_id:
+                section[i] = updated
+                break
+        else:
+            section.append(updated)
+        overrides[category_key] = section
+        with open(opath, "w", encoding="utf-8") as f:
+            yaml.dump(overrides, f, allow_unicode=True)
+
+    def _save_and_reload(category_key: str, entry_id: str, upd: dict, name: str) -> None:
+        _save_override(category_key, entry_id, upd)
+        st.toast(f"✅ 已保存 {name}")
+        st.rerun()
+
+    # ── Section 1: Platform selector ────────────────────────────
+    col_pf, _ = st.columns([1, 3])
+    with col_pf:
+        platform_id = st.selectbox(
+            "当前平台",
+            ALL_PLATFORMS,
+            format_func=lambda x: {"zhihu": "知乎", "bilibili": "B站", "xiaoyuzhou": "小宇宙"}[x],
+            key="wg_platform_top",
+        )
+    st.markdown("---")
+
+    # ── Section 2: Template browser tabs ─────────────────────────
+    TAB_CFG = [
+        ("问题类型", "question_types"),
+        ("文风", "styles"),
+        ("结构", "structures"),
+        ("钩子", "hooks"),
+        ("情绪曲线", "emotional_arcs"),
+        ("技巧", "techniques"),
+        ("平台配置", "platforms"),
+    ]
+    tabs = st.tabs([c[0] for c in TAB_CFG])
+
+    # --- Tab: 问题类型 ---
+    with tabs[0]:
+        for entry in guide_data.get("question_types", []):
+            chars = entry.get("characteristics", {})
+            eid = entry["id"]
+            with st.expander(f"**{entry['name']}** (`{eid}`)", expanded=False):
+                ca, cb = st.columns(2)
+                with ca:
+                    n_name = st.text_input("名称", entry.get("name", ""), key=f"qt_name_{eid}")
+                    tone = st.text_area("语调", chars.get("tone", ""), key=f"qt_tone_{eid}")
+                with cb:
+                    n_plat = st.multiselect("支持平台", ALL_PLATFORMS, entry.get("supported_platforms", []), key=f"qt_plat_{eid}")
+                    n_len = st.text_input("字数建议", chars.get("length_estimate", ""), key=f"qt_len_{eid}")
+                if chars.get("avoid"):
+                    st.markdown(f"**避免:** {'; '.join(chars['avoid'])}")
+                if st.button("保存修改", key=f"qt_save_{eid}"):
+                    upd = deepcopy(entry)
+                    upd["name"] = n_name
+                    upd.setdefault("characteristics", {})["tone"] = tone
+                    upd["characteristics"]["length_estimate"] = n_len
+                    upd["supported_platforms"] = n_plat
+                    _save_and_reload("question_types", eid, upd, entry["name"])
+
+    # --- Tab: 文风 ---
+    with tabs[1]:
+        for entry in guide_data.get("styles", []):
+            eid = entry["id"]
+            with st.expander(f"**{entry['name']}** (`{eid}`)", expanded=False):
+                ca, cb = st.columns(2)
+                with ca:
+                    n_name = st.text_input("名称", entry.get("name", ""), key=f"st_name_{eid}")
+                    tone = st.text_area("语调", entry.get("tone", ""), key=f"st_tone_{eid}")
+                with cb:
+                    n_suit = st.multiselect("适用问题类型", all_qt_ids, entry.get("suitable_for", []), key=f"st_suit_{eid}")
+                    n_plat = st.multiselect("支持平台", ALL_PLATFORMS, entry.get("supported_platforms", []), key=f"st_plat_{eid}")
+                if entry.get("sentence_length"):
+                    st.text_input("句长", entry.get("sentence_length", ""), key=f"st_sent_{eid}")
+                if entry.get("markers"):
+                    st.markdown(f"**标志:** {'; '.join(entry['markers'])}")
+                if st.button("保存修改", key=f"st_save_{eid}"):
+                    upd = deepcopy(entry)
+                    upd["name"] = n_name
+                    upd["tone"] = tone
+                    upd["suitable_for"] = n_suit
+                    upd["supported_platforms"] = n_plat
+                    _save_and_reload("styles", eid, upd, entry["name"])
+
+    # --- Tab: 结构 ---
+    with tabs[2]:
+        for entry in guide_data.get("structures", []):
+            eid = entry["id"]
+            with st.expander(f"**{entry['name']}** (`{eid}`)", expanded=False):
+                ca, cb = st.columns(2)
+                with ca:
+                    n_name = st.text_input("名称", entry.get("name", ""), key=f"str_name_{eid}")
+                with cb:
+                    n_suit = st.multiselect("适用问题类型", all_qt_ids, entry.get("suitable_for", []), key=f"str_suit_{eid}")
+                    n_plat = st.multiselect("支持平台", ALL_PLATFORMS, entry.get("supported_platforms", []), key=f"str_plat_{eid}")
+                if entry.get("sections"):
+                    st.markdown("**章节构成:**")
+                    for sec in entry["sections"]:
+                        sr = sec.get("length_ratio", "")
+                        sc = sec.get("content", "")
+                        st.markdown(f"- **{sec.get('name','')}** ({sr}): {sc}")
+                if st.button("保存修改", key=f"str_save_{eid}"):
+                    upd = deepcopy(entry)
+                    upd["name"] = n_name
+                    upd["suitable_for"] = n_suit
+                    upd["supported_platforms"] = n_plat
+                    _save_and_reload("structures", eid, upd, entry["name"])
+
+    # --- Tab: 钩子 ---
+    with tabs[3]:
+        for entry in guide_data.get("hooks", []):
+            eid = entry["id"]
+            with st.expander(f"**{entry['name']}** (`{eid}`)", expanded=False):
+                ca, cb = st.columns(2)
+                with ca:
+                    n_name = st.text_input("名称", entry.get("name", ""), key=f"hk_name_{eid}")
+                    structure = st.text_area("结构", entry.get("structure", ""), key=f"hk_str_{eid}")
+                with cb:
+                    n_suit = st.multiselect("适用问题类型", all_qt_ids, entry.get("suitable_for", []), key=f"hk_suit_{eid}")
+                    n_plat = st.multiselect("支持平台", ALL_PLATFORMS, entry.get("supported_platforms", []), key=f"hk_plat_{eid}")
+                st.markdown(f"**风险等级:** {entry.get('risk_level','')}  ·  **示例:** {entry.get('example','')}")
+                if entry.get("risk_note"):
+                    st.caption(f"⚠️ {entry['risk_note']}")
+                if st.button("保存修改", key=f"hk_save_{eid}"):
+                    upd = deepcopy(entry)
+                    upd["name"] = n_name
+                    upd["structure"] = structure
+                    upd["suitable_for"] = n_suit
+                    upd["supported_platforms"] = n_plat
+                    _save_and_reload("hooks", eid, upd, entry["name"])
+
+    # --- Tab: 情绪曲线 ---
+    with tabs[4]:
+        for entry in guide_data.get("emotional_arcs", []):
+            eid = entry["id"]
+            with st.expander(f"**{entry['name']}** (`{eid}`)", expanded=False):
+                ca, cb = st.columns(2)
+                with ca:
+                    n_name = st.text_input("名称", entry.get("name", ""), key=f"arc_name_{eid}")
+                    note = st.text_area("说明", entry.get("note", ""), key=f"arc_note_{eid}")
+                with cb:
+                    n_suit = st.multiselect("适用问题类型", all_qt_ids, entry.get("suitable_for", []), key=f"arc_suit_{eid}")
+                    n_plat = st.multiselect("支持平台", ALL_PLATFORMS, entry.get("supported_platforms", []), key=f"arc_plat_{eid}")
+                if entry.get("phases"):
+                    st.markdown("**情绪阶段:**")
+                    for ph in entry["phases"]:
+                        st.markdown(f"- **{ph.get('phase','')}** ({ph.get('position','')}): "
+                                    f"{ph.get('emotion','')} — {ph.get('action','')}")
+                if st.button("保存修改", key=f"arc_save_{eid}"):
+                    upd = deepcopy(entry)
+                    upd["name"] = n_name
+                    upd["note"] = note
+                    upd["suitable_for"] = n_suit
+                    upd["supported_platforms"] = n_plat
+                    _save_and_reload("emotional_arcs", eid, upd, entry["name"])
+
+    # --- Tab: 技巧 ---
+    with tabs[5]:
+        for entry in guide_data.get("techniques", []):
+            eid = entry["id"]
+            with st.expander(f"**{entry['name']}** (`{eid}`)", expanded=False):
+                ca, cb = st.columns(2)
+                with ca:
+                    n_name = st.text_input("名称", entry.get("name", ""), key=f"tc_name_{eid}")
+                    desc = st.text_area("描述", entry.get("description", ""), key=f"tc_desc_{eid}")
+                with cb:
+                    n_ctx = st.multiselect("允许上下文（问题类型）", all_qt_ids, entry.get("allowed_contexts", []), key=f"tc_ctx_{eid}")
+                    n_plat = st.multiselect("支持平台", ALL_PLATFORMS, entry.get("supported_platforms", []), key=f"tc_plat_{eid}")
+                st.markdown(f"**风险等级:** {entry.get('risk_level','')}  ·  **用法:** {entry.get('usage','')}")
+                if st.button("保存修改", key=f"tc_save_{eid}"):
+                    upd = deepcopy(entry)
+                    upd["name"] = n_name
+                    upd["description"] = desc
+                    upd["allowed_contexts"] = n_ctx
+                    upd["supported_platforms"] = n_plat
+                    _save_and_reload("techniques", eid, upd, entry["name"])
+
+    # --- Tab: 平台配置 ---
+    with tabs[6]:
+        for entry in guide_data.get("platforms", []):
+            eid = entry["id"]
+            with st.expander(f"**{entry['name']}** (`{eid}`)", expanded=False):
+                ca, cb = st.columns(2)
+                with ca:
+                    n_name = st.text_input("名称", entry.get("name", ""), key=f"pf_name_{eid}")
+                    audience = st.text_area("受众", entry.get("audience", ""), key=f"pf_aud_{eid}")
+                with cb:
+                    tone_def = st.text_input("默认语调", entry.get("tone_default", ""), key=f"pf_tone_{eid}")
+                    len_def = st.text_input("默认字数", entry.get("length_default", ""), key=f"pf_len_{eid}")
+                if entry.get("etiquette"):
+                    st.markdown(f"**礼仪:** {entry['etiquette']}")
+                if entry.get("taboos"):
+                    st.markdown(f"**禁忌:** {'; '.join(entry['taboos'])}")
+                if st.button("保存修改", key=f"pf_save_{eid}"):
+                    upd = deepcopy(entry)
+                    upd["name"] = n_name
+                    upd["audience"] = audience
+                    upd["tone_default"] = tone_def
+                    upd["length_default"] = len_def
+                    _save_and_reload("platforms", eid, upd, entry["name"])
+
+    # ── Section 3: Preview Panel ─────────────────────────────────
+    st.markdown("---")
+    st.markdown("### 🎯 格式推荐预览")
+    st.markdown("选择问题类型，查看 FormatSelector 的推荐方案")
+
+    col_qt, col_go = st.columns([2, 1])
+    with col_qt:
+        preview_type = st.selectbox(
+            "问题类型",
+            all_qt_ids,
+            format_func=lambda x: next(
+                (qt["name"] for qt in guide_data.get("question_types", []) if qt["id"] == x), x
+            ),
+            key="wg_preview_type",
+        )
+    with col_go:
+        st.markdown("##")  # vertical spacer
+        preview_btn = st.button("🚀 预览", type="primary", use_container_width=True)
+
+    if preview_btn and preview_type:
+        with st.spinner("计算推荐方案..."):
+            try:
+                fs = FormatSelector(knowledge_dir=str(knowledge_path), platform=platform_id)
+                rec = fs.recommend(preview_type)
+
+                if "description" in rec and len(rec) == 1:
+                    st.warning(rec["description"])
+                else:
+                    col_r1, col_r2 = st.columns([3, 2])
+
+                    with col_r1:
+                        # Description
+                        st.info(rec.get("description", ""))
+
+                        # Style badges
+                        styles_rec = rec.get("style", {})
+                        if styles_rec.get("recommended"):
+                            style_names = [s["name"] for s in styles_rec["recommended"]]
+                            st.markdown(f"**🎨 推荐风格:** {' · '.join(f'`{s}`' for s in style_names)}")
+                            if styles_rec.get("blend_suggestion"):
+                                st.caption(styles_rec["blend_suggestion"])
+
+                        # Structure
+                        struct_rec = rec.get("structure", {}).get("recommended")
+                        if struct_rec:
+                            st.markdown(f"**📋 推荐结构: {struct_rec['name']}**")
+                            for sec in struct_rec.get("sections", []):
+                                ratio = sec.get("length_ratio", "")
+                                st.markdown(f"  - **{sec.get('name','')}** ({ratio})")
+                            if rec["structure"].get("alternative"):
+                                alt = rec["structure"]["alternative"]
+                                st.caption(f"备选: {alt['name']} — {alt.get('reason','')}")
+
+                        # Hook
+                        hook_rec = rec.get("hook", {})
+                        if hook_rec.get("recommended"):
+                            h = hook_rec["recommended"][0]
+                            st.markdown(f"**🎣 推荐钩子: {h['name']}** ({h.get('risk_level','')})")
+                            if h.get("structure"):
+                                st.markdown(f"  > {h['structure']}")
+                            if h.get("reason"):
+                                st.caption(f"💡 {h['reason']}")
+
+                    with col_r2:
+                        # Emotional arc
+                        arc_rec = rec.get("emotional_arc", {}).get("recommended")
+                        if arc_rec:
+                            st.markdown(f"**📈 情绪曲线: {arc_rec['name']}**")
+                            for ph in arc_rec.get("phases", []):
+                                pos = ph.get("position", "")
+                                emo = ph.get("emotion", "")
+                                act = ph.get("action", "")
+                                st.markdown(f"  - **{ph.get('phase','')}** ({pos}): {emo}")
+                            if arc_rec.get("note"):
+                                st.caption(f"📝 {arc_rec['note']}")
+
+                        # Techniques
+                        tech_rec = rec.get("techniques", {})
+                        if tech_rec.get("recommended"):
+                            st.markdown("**🔧 推荐技巧:**")
+                            for t in tech_rec["recommended"]:
+                                st.markdown(f"  - `{t['name']}`: {t.get('description','')}")
+                        if tech_rec.get("optional"):
+                            st.caption(f"可选: {', '.join(t['name'] for t in tech_rec['optional'])}")
+
+                        # Length
+                        if rec.get("length_estimate"):
+                            st.markdown(f"**📏 字数建议:** {rec['length_estimate']}")
+
+                        # Image suggestions
+                        if rec.get("image_suggestions"):
+                            st.markdown("**🖼️ 配图建议:**")
+                            for img in rec["image_suggestions"]:
+                                st.markdown(f"  - {img.get('name','')}")
+
+            except Exception as e:
+                st.error(f"推荐失败: {e}")
 
 # ================================================================
 # 首次使用指引

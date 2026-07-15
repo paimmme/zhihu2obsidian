@@ -2,17 +2,40 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8">
-    <title>知识树分析</title>
+    <title>知识库助手</title>
     <link rel="stylesheet" href="sidebar.css">
   </head>
   <body>
     <main>
       <header>
-        <h1>知识树分析</h1>
-        <button id="copy">复制素材包</button>
+        <h1>知识库助手</h1>
+        <button id="copy">复制结果</button>
       </header>
+      <nav id="tabs">
+        <button class="tab-button active" data-tab="selection">文本分析</button>
+        <button class="tab-button" data-tab="question">问题分析</button>
+        <button class="tab-button" data-tab="quality-check">质量检查</button>
+      </nav>
+      <section id="platform-bar">
+        <label for="platform-select" class="platform-label">平台</label>
+        <select id="platform-select" onchange="onPlatformChange()">
+          <option value="zhihu">知乎</option>
+          <option value="bilibili">B站</option>
+          <option value="xiaoyuzhou">小宇宙</option>
+        </select>
+      </section>
       <section id="status">等待分析</section>
       <section id="content"></section>
+      <section id="actions" style="display:none"></section>
+      <section id="tab-quality-check" class="tab-panel" style="display:none">
+        <p class="muted">检查草稿与知识库的相似度，避免过度引用。</p>
+        <textarea id="qc-text" class="qc-textarea" placeholder="粘贴或输入要检查的草稿文本..."></textarea>
+        <div class="qc-actions">
+          <button id="qc-from-editor-btn" class="action-btn secondary">从草稿导入</button>
+          <button id="qc-run-btn" class="action-btn primary">开始检查</button>
+        </div>
+        <div id="qc-result" style="display:none"></div>
+      </section>
     </main>
     <script src="sidebar.js"></script>
   </body>

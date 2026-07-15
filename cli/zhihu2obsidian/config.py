@@ -25,6 +25,7 @@ class Config:
         self.log_level: str = "INFO"
         self.collections: list[int] = []  # empty = sync all
         self.deepseek_api_key: str = ""
+        self.unsplash_api_key: str = ""
         self.knowledge_dir: str = ""  # defaults to output_path / ".knowledge"
 
     @classmethod
@@ -60,6 +61,7 @@ class Config:
             "log_level": self.log_level,
             "collections": self.collections,
             "deepseek_api_key": self.deepseek_api_key,
+            "unsplash_api_key": self.unsplash_api_key,
             "knowledge_dir": self.knowledge_dir,
         }
         CONFIG_FILE.write_text(
