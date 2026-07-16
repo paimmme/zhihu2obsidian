@@ -52,3 +52,7 @@ popup.js
 sync.css
 sync.html
 browser-polyfill.js
+
+# Config files with API keys
+config.yaml
+config.yml
